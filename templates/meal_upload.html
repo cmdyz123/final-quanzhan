@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block title %}上传分析 - NutriSnap{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h3><i class="bi bi-cloud-upload"></i> 记录餐食</h3>
+    <p class="text-muted">拍照AI识别或手动输入食物名称，记录每一餐的营养</p>
+
+    <!-- Tab Navigation -->
+    <ul class="nav nav-tabs mb-4" id="recordTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="photo-tab" data-bs-toggle="tab" data-bs-target="#photoPanel" type="button">
+                <i class="bi bi-camera"></i> 拍照识别
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="manual-tab" data-bs-toggle="tab" data-bs-target="#manualPanel" type="button">
+                <i class="bi bi-keyboard"></i> 手动输入
+            </button>
+        </li>
+    </ul>
+
+    <div class="row">
+        <!-- Left: Input Forms -->
+        <div class="col-lg-5">
+            <div class="tab-content" id="recordTabContent">
+                <!-- Photo Upload Panel -->
+                <div class="tab-pane fade show active" id="photoPanel">
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+                            <form method="POST" action="{{ url_for('meal.upload') }}" enctype="multipart/form-data" id="uploadForm">
+                                <input type="hidden" name="input_method" value="photo">
+
+                                <div class="mb-3">
+                                    <label for="meal_type_photo" class="form-label">餐食类型</label>
+                                    <select class="form-select" name="meal_type" id="meal_type_photo" required>
+                                        <option value="breakfast">☀️ 早餐</option>
+                                        <option value="lunch" selected>🌞 午餐</option>
+                                        <option value="dinner">🌙 晚餐</option>
+                                        <option value="snack">🍪 加餐</option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">餐食照片</label>
+                                    <div class="upload-area border rounded p-4 text-center" id="dropZone">
+                                        <i class="bi bi-cloud-arrow-up display-3 text-muted"></i>
+                                        <p class="mt-2 text-muted">点击或拖拽图片到此处</p>
+                                        <p class="small text-muted">支持 JPG、PNG、WebP 格式</p>
+                                        <input type="file" class="d-none" id="food_image" name="food_image" accept="image/*" capture="environment">
+                                        <img id="preview" class="img-fluid rounded mt-2 d-none" style="max-height: 250px;">
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="price_photo" class="form-label">💰 价格（元）</label>
+                                    <input type="number" class="form-control" id="price_photo" name="price" step="0.01" min="0" placeholder="输入这餐花了多少钱">
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="notes_photo" class="form-label">备注（可选）</label>
+                                    <textarea class="form-control" id="notes_photo" name="notes" rows="2" placeholder="例如：这家餐厅的菜量比较大..."></textarea>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary w-100 btn-lg" id="submitPhotoBtn">
+                                    <i class="bi bi-magic"></i> AI分析这餐饭
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Manual Input Panel -->
+                <div class="tab-pane fade" id="manualPanel">
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+                            <form method="POST" action="{{ url_for('meal.upload') }}" id="manualForm">
+                                <input type="hidden" name="input_method" value="manual">
+
+                                <div class="mb-3">
+                                    <label for="meal_type_manual" class="form-label">餐食类型</label>
+                                    <select class="form-select" name="meal_type" id="meal_type_manual" required>
+                                        <option value="breakfast">☀️ 早餐</option>
+                                        <option value="lunch" selected>🌞 午餐</option>
+                                        <option value="dinner">🌙 晚餐</option>
+                                        <option value="snack">🍪 加餐</option>
+                                    </select>
+                                </div>
+
+                                <!-- Dynamic Food Rows -->
+                                <div class="mb-3">
+                                    <label class="form-label">🍽️ 食物列表</label>
+                                    <div id="foodRows">
+                                        <div class="food-row row g-2 mb-2">
+                                            <div class="col-6">
+                                                <input type="text" class="form-control food-search" name="food_name[]"
+                                                       placeholder="输入食物名称" autocomplete="off" required>
+                                                <div class="food-suggestions list-group position-absolute d-none" style="z-index:1000; max-height:200px; overflow-y:auto;"></div>
+                                            </div>
+                                            <div class="col-3">
+                                                <input type="number" class="form-control" name="food_portion[]"
+                                                       placeholder="分量(g)" value="100" min="10" max="2000">
+                                            </div>
+                                            <div class="col-2">
+                                                <button type="button" class="btn btn-outline-danger btn-sm remove-food-row" title="删除">
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-outline-primary btn-sm mt-1" id="addFoodRow">
+                                        <i class="bi bi-plus-circle"></i> 添加食物
+                                    </button>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="price_manual" class="form-label">💰 价格（元）</label>
+                                    <input type="number" class="form-control" id="price_manual" name="price" step="0.01" min="0" placeholder="输入这餐花了多少钱">
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="notes_manual" class="form-label">备注（可选）</label>
+                                    <textarea class="form-control" id="notes_manual" name="notes" rows="2" placeholder="例如：自己做的，少油少盐..."></textarea>
+                                </div>
+
+                                <button type="submit" class="btn btn-success w-100 btn-lg" id="submitManualBtn">
+                                    <i class="bi bi-check-circle"></i> 记录这餐饭
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Analysis Result -->
+        <div class="col-lg-7">
+            {% if analysis_result %}
+            <div class="card shadow-sm border-success analysis-result">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-check-circle"></i> 分析完成</h5>
+                    <span class="badge bg-light text-dark">
+                        {% if meal_type == 'breakfast' %}早餐
+                        {% elif meal_type == 'lunch' %}午餐
+                        {% elif meal_type == 'dinner' %}晚餐
+                        {% else %}加餐{% endif %}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <!-- Food Items -->
+                    <h6>🍽️ 食物清单</h6>
+                    <div class="row g-2 mb-3">
+                        {% for food in analysis_result.foods %}
+                        <div class="col-6">
+                            <div class="border rounded p-2 d-flex align-items-center">
+                                <span class="fs-4 me-2">{% if '肉' in food.name %}🥩{% elif '菜' in food.name or '西兰花' in food.name or '菠菜' in food.name %}🥬{% elif '饭' in food.name or '面' in food.name or '包' in food.name %}🍚{% elif '蛋' in food.name %}🥚{% elif '果' in food.name %}🍎{% elif '奶' in food.name %}🥛{% else %}🍽️{% endif %}</span>
+                                <div>
+                                    <strong>{{ food.name }}</strong>
+                                    <small class="text-muted d-block">{{ food.portion_g }}g{% if food.confidence < 1.0 %} · {{ (food.confidence * 100) | int }}%{% endif %}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Nutrition Totals -->
+                    <h6>📊 营养成分</h6>
+                    <div class="row g-2 mb-3">
+                        {% set totals = analysis_result.totals %}
+                        <div class="col-3">
+                            <div class="text-center border rounded p-2">
+                                <div class="fs-5 fw-bold text-danger">{{ totals.calories | round | int }}</div>
+                                <small class="text-muted">热量(千卡)</small>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-center border rounded p-2">
+                                <div class="fs-5 fw-bold text-primary">{{ totals.protein | round(1) }}</div>
+                                <small class="text-muted">蛋白质(g)</small>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-center border rounded p-2">
+                                <div class="fs-5 fw-bold text-warning">{{ totals.fat | round(1) }}</div>
+                                <small class="text-muted">脂肪(g)</small>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-center border rounded p-2">
+                                <div class="fs-5 fw-bold text-success">{{ totals.carbs | round(1) }}</div>
+                                <small class="text-muted">碳水(g)</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analysis Text -->
+                    <h6>💡 AI营养点评</h6>
+                    <div class="alert alert-info">
+                        <i class="bi bi-robot"></i> {{ analysis_result.analysis }}
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('main.dashboard') }}" class="btn btn-primary">
+                            <i class="bi bi-speedometer2"></i> 查看仪表盘
+                        </a>
+                        <a href="{{ url_for('meal.upload') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-plus-circle"></i> 继续记录
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="card shadow-sm border-dashed h-100 d-flex align-items-center justify-content-center">
+                <div class="text-center text-muted p-5">
+                    <i class="bi bi-image display-1"></i>
+                    <h5 class="mt-3">拍照或手动输入查看分析结果</h5>
+                    <p>支持拍照AI识别和手动搜索食物名称<br>米饭、面条、炒菜、肉类、蔬菜、水果等40+种食物</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Hidden data for JS -->
+<script id="allFoodsData" type="application/json">{{ all_foods | tojson }}</script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/upload.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+{% block title %}营养报告 - NutriSnap{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h3><i class="bi bi-graph-up"></i> 营养趋势报告</h3>
+    <p class="text-muted">追踪你的饮食习惯变化和消费情况</p>
+
+    <!-- Overview Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-2">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <i class="bi bi-fire text-danger fs-3"></i>
+                    <h5 class="mt-2">{{ averages.calories }}</h5>
+                    <small class="text-muted">日均热量(千卡)</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <i class="bi bi-egg-fill text-primary fs-3"></i>
+                    <h5 class="mt-2">{{ averages.protein }}</h5>
+                    <small class="text-muted">日均蛋白质(g)</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <i class="bi bi-droplet-fill text-warning fs-3"></i>
+                    <h5 class="mt-2">{{ averages.fat }}</h5>
+                    <small class="text-muted">日均脂肪(g)</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <i class="bi bi-circle-fill text-success fs-3"></i>
+                    <h5 class="mt-2">{{ averages.carbs }}</h5>
+                    <small class="text-muted">日均碳水(g)</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <i class="bi bi-wallet2 text-info fs-3"></i>
+                    <h5 class="mt-2">¥{{ averages.price }}</h5>
+                    <small class="text-muted">日均消费</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <i class="bi bi-cash-stack text-dark fs-3"></i>
+                    <h5 class="mt-2">¥{{ averages.total_spending }}</h5>
+                    <small class="text-muted">30日总消费</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 30-Day Charts Row -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-activity"></i> 30日热量趋势</h5>
+                    <small class="text-muted">统计天数: {{ averages.days_with_data }} 天</small>
+                </div>
+                <div class="card-body">
+                    <canvas id="monthlyChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-cash"></i> 30日消费趋势</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="spendingChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Macro + Meal Stats Row -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart-line"></i> 营养素摄入趋势</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="macroTrendChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-pie-chart"></i> 7日餐次分布</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="mealTypeChart" height="220"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-check2-square"></i> 三餐完成率</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="mealCompletionChart" height="220"></canvas>
+                    <div class="text-center small text-muted mt-2">
+                        {% set total = meal_completion.recorded + meal_completion.skipped + meal_completion.missing %}
+                        {% if total > 0 %}
+                        记录 {{ (meal_completion.recorded / total * 100) | int }}% ·
+                        跳过 {{ (meal_completion.skipped / total * 100) | int }}% ·
+                        缺失 {{ (meal_completion.missing / total * 100) | int }}%
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Insights + Avg Meal Price -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-robot"></i> AI营养洞察</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="alert alert-info mb-0">
+                                <h6><i class="bi bi-lightbulb"></i> 摄入规律分析</h6>
+                                <p class="mb-0 small">
+                                    {% if averages.days_with_data >= 7 %}
+                                    过去{{ averages.days_with_data }}天里，日均热量摄入{{ averages.calories }}千卡。
+                                    {% if averages.calories < 1500 %}
+                                    热量摄入偏低，建议适当增加，保证基础代谢所需。
+                                    {% elif averages.calories < 2200 %}
+                                    热量摄入适中，保持当前的饮食节奏。
+                                    {% else %}
+                                    热量摄入偏高，考虑适当减少高热量食物。
+                                    {% endif %}
+                                    {% else %}
+                                    记录数据较少，建议坚持每天记录餐食以获得更准确的分析。
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="alert alert-success mb-0">
+                                <h6><i class="bi bi-star"></i> 改善建议</h6>
+                                <p class="mb-0 small">
+                                    {% set protein_ratio = (averages.protein * 4 / max(averages.calories, 1) * 100) | round %}
+                                    {% if protein_ratio < 15 %}
+                                    蛋白质占比{{ protein_ratio }}%偏低，建议增加瘦肉、鱼类、豆制品摄入。
+                                    {% elif protein_ratio > 30 %}
+                                    蛋白质占比{{ protein_ratio }}%较高，可适当增加碳水摄入平衡。
+                                    {% else %}
+                                    蛋白质占比{{ protein_ratio }}%合理，继续保持！注意蔬菜水果的多样化摄入。
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-cash-coin"></i> 各餐均价</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <td>☀️ 早餐</td>
+                            <td class="text-end fw-bold">¥{{ avg_meal_price.get('breakfast', 0) }}</td>
+                        </tr>
+                        <tr>
+                            <td>🌞 午餐</td>
+                            <td class="text-end fw-bold">¥{{ avg_meal_price.get('lunch', 0) }}</td>
+                        </tr>
+                        <tr>
+                            <td>🌙 晚餐</td>
+                            <td class="text-end fw-bold">¥{{ avg_meal_price.get('dinner', 0) }}</td>
+                        </tr>
+                        <tr>
+                            <td>🍪 加餐</td>
+                            <td class="text-end fw-bold">¥{{ avg_meal_price.get('snack', 0) }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const monthData = {{ month_data | tojson }};
+    const mealTypeStats = {{ meal_type_stats | tojson }};
+    const mealCompletion = {{ meal_completion | tojson }};
+
+    // 30-day calorie trend
+    new Chart(document.getElementById('monthlyChart'), {
+        type: 'line',
+        data: {
+            labels: monthData.labels,
+            datasets: [{
+                label: '热量 (千卡)',
+                data: monthData.calories,
+                borderColor: '#e74a3b',
+                backgroundColor: 'rgba(231, 74, 59, 0.1)',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { title: { display: true, text: '千卡' } } }
+        }
+    });
+
+    // 30-day spending trend
+    new Chart(document.getElementById('spendingChart'), {
+        type: 'bar',
+        data: {
+            labels: monthData.labels,
+            datasets: [{
+                label: '消费 (元)',
+                data: monthData.price,
+                backgroundColor: '#36b9cc',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { title: { display: true, text: '元' }, beginAtZero: true } }
+        }
+    });
+
+    // Macro trend
+    new Chart(document.getElementById('macroTrendChart'), {
+        type: 'line',
+        data: {
+            labels: monthData.labels,
+            datasets: [
+                {
+                    label: '蛋白质(g)',
+                    data: monthData.protein,
+                    borderColor: '#4e73df',
+                    tension: 0.4, pointRadius: 0, borderWidth: 2
+                },
+                {
+                    label: '脂肪(g)',
+                    data: monthData.fat,
+                    borderColor: '#f6c23e',
+                    tension: 0.4, pointRadius: 0, borderWidth: 2
+                },
+                {
+                    label: '碳水(g)',
+                    data: monthData.carbs,
+                    borderColor: '#1cc88a',
+                    tension: 0.4, pointRadius: 0, borderWidth: 2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+
+    // Meal type distribution
+    new Chart(document.getElementById('mealTypeChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['早餐', '午餐', '晚餐', '加餐'],
+            datasets: [{
+                data: [mealTypeStats.breakfast, mealTypeStats.lunch, mealTypeStats.dinner, mealTypeStats.snack],
+                backgroundColor: ['#4e73df', '#f6c23e', '#1cc88a', '#858796'],
+                borderWidth: 2, borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+
+    // Meal completion rate
+    new Chart(document.getElementById('mealCompletionChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['已记录', '已跳过', '未记录'],
+            datasets: [{
+                data: [mealCompletion.recorded, mealCompletion.skipped, mealCompletion.missing],
+                backgroundColor: ['#1cc88a', '#f6c23e', '#e74a3b'],
+                borderWidth: 2, borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            cutout: '55%',
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+</script>
+{% endblock %}

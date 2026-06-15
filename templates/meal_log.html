@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}饮食记录 - NutriSnap{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3><i class="bi bi-journal-text"></i> 饮食记录</h3>
+            <p class="text-muted mb-0">查看和管理你的所有餐食记录</p>
+        </div>
+        <div>
+            <span class="me-3"><strong>今日消费:</strong> <span class="text-info">¥{{ today_total_price }}</span></span>
+            <span class="me-3"><strong>7日消费:</strong> <span class="text-muted">¥{{ week_total_price }}</span></span>
+            <a href="{{ url_for('meal.upload') }}" class="btn btn-primary">
+                <i class="bi bi-plus-lg"></i> 新增记录
+            </a>
+        </div>
+    </div>
+
+    {% if meals %}
+    <div class="row g-3">
+        {% for meal in meals %}
+        {% if not meal.skipped %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow-sm h-100">
+                {% if meal.image_path %}
+                <img src="{{ url_for('static', filename=meal.image_path.replace('\\\\', '/').split('uploads/')[-1]) if 'uploads' in meal.image_path else '' }}"
+                     class="card-img-top" style="height: 180px; object-fit: cover;"
+                     onerror="this.parentElement.style.display='none'">
+                {% endif %}
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        {% set meal_badge = {'breakfast': 'bg-info', 'lunch': 'bg-warning', 'dinner': 'bg-primary', 'snack': 'bg-secondary'} %}
+                        <span class="badge {{ meal_badge.get(meal.meal_type, 'bg-secondary') }}">
+                            {% if meal.meal_type == 'breakfast' %}早餐
+                            {% elif meal.meal_type == 'lunch' %}午餐
+                            {% elif meal.meal_type == 'dinner' %}晚餐
+                            {% else %}加餐{% endif %}
+                        </span>
+                        <div>
+                            {% if meal.price %}
+                            <span class="badge bg-info me-1">¥{{ meal.price }}</span>
+                            {% endif %}
+                            {% if meal.input_method == 'manual' %}
+                            <span class="badge bg-light text-dark">手动</span>
+                            {% endif %}
+                            <small class="text-muted">{{ meal.created_at.strftime('%m/%d %H:%M') }}</small>
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        {% for food in meal.get_foods() %}
+                        <span class="badge bg-light text-dark me-1">{{ food.name }}</span>
+                        {% endfor %}
+                    </div>
+
+                    {% set nutrition = meal.get_nutrition() %}
+                    <div class="row small g-1">
+                        <div class="col-3 text-center">
+                            <span class="fw-bold text-danger">{{ nutrition.get('calories', 0) | round | int }}</span><br>
+                            <span class="text-muted">千卡</span>
+                        </div>
+                        <div class="col-3 text-center">
+                            <span class="fw-bold text-primary">{{ nutrition.get('protein', 0) | round(1) }}</span><br>
+                            <span class="text-muted">蛋白</span>
+                        </div>
+                        <div class="col-3 text-center">
+                            <span class="fw-bold text-warning">{{ nutrition.get('fat', 0) | round(1) }}</span><br>
+                            <span class="text-muted">脂肪</span>
+                        </div>
+                        <div class="col-3 text-center">
+                            <span class="fw-bold text-success">{{ nutrition.get('carbs', 0) | round(1) }}</span><br>
+                            <span class="text-muted">碳水</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-2 d-flex justify-content-between">
+                        <a href="{{ url_for('meal.meal_detail', meal_id=meal.id) }}" class="btn btn-sm btn-outline-primary">
+                            详情
+                        </a>
+                        <form method="POST" action="{{ url_for('meal.meal_delete', meal_id=meal.id) }}"
+                              onsubmit="return confirm('确定删除这条记录吗？')" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash"></i> 删除
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-inbox display-1 text-muted"></i>
+        <h4 class="mt-3 text-muted">还没有饮食记录</h4>
+        <p>开始记录你的每一餐，AI帮你分析营养！</p>
+        <a href="{{ url_for('meal.upload') }}" class="btn btn-primary btn-lg">
+            <i class="bi bi-camera"></i> 拍照记录第一餐
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

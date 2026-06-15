@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}仪表盘 - NutriSnap{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Welcome & Summary -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <h3><i class="bi bi-speedometer2"></i> 营养仪表盘</h3>
+            <p class="text-muted">{{ daily_analysis.summary }}</p>
+        </div>
+        <div class="col-lg-4 text-lg-end">
+            <a href="{{ url_for('meal.upload') }}" class="btn btn-primary">
+                <i class="bi bi-camera"></i> 记录餐食
+            </a>
+        </div>
+    </div>
+
+    <!-- Meal Status Panel (Three Meals) -->
+    <div class="row g-3 mb-4">
+        {% set mt_list = [
+            ('breakfast', '☀️ 早餐', 'bi-sunrise'),
+            ('lunch', '🌞 午餐', 'bi-sun'),
+            ('dinner', '🌙 晚餐', 'bi-moon'),
+        ] %}
+        {% for mt, label, icon in mt_list %}
+        {% set ms = meal_status[mt] %}
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100
+                {% if ms.status == 'recorded' %}border-start border-success border-3
+                {% elif ms.status == 'skipped' %}border-start border-warning border-3
+                {% else %}border-start border-secondary border-3{% endif %}">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="mb-1"><i class="bi {{ icon }}"></i> {{ label }}</h6>
+                            {% if ms.status == 'recorded' and ms.record %}
+                                <small class="text-success fw-bold">✅ 已记录</small>
+                                <div class="mt-1">
+                                    <span class="badge bg-primary rounded-pill">
+                                        {{ ms.record.get_nutrition().get('calories', 0) | round | int }} 千卡
+                                    </span>
+                                    {% if ms.record.price %}
+                                    <span class="badge bg-info rounded-pill">¥{{ ms.record.price }}</span>
+                                    {% endif %}
+                                    {% if ms.record.input_method == 'manual' %}
+                                    <span class="badge bg-light text-dark">手动</span>
+                                    {% endif %}
+                                </div>
+                                <div class="mt-1 small text-muted">
+                                    {% for food in ms.record.get_foods() %}
+                                        {{ food.name }}{% if not loop.last %}、{% endif %}
+                                    {% endfor %}
+                                </div>
+                            {% elif ms.status == 'skipped' %}
+                                <small class="text-warning fw-bold">⏭️ 已跳过</small>
+                                <div class="mt-1">
+                                    <form method="POST" action="{{ url_for('meal.meal_undo_skip') }}" class="d-inline">
+                                        <input type="hidden" name="meal_type" value="{{ mt }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">撤销跳过</button>
+                                    </form>
+                                </div>
+                            {% else %}
+                                <small class="text-muted">❌ 未记录</small>
+                                <div class="mt-1 d-flex gap-1">
+                                    <a href="{{ url_for('meal.upload') }}?type={{ mt }}" class="btn btn-sm btn-outline-primary">记录</a>
+                                    <form method="POST" action="{{ url_for('meal.meal_skip') }}" class="d-inline">
+                                        <input type="hidden" name="meal_type" value="{{ mt }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-warning" title="睡过头/不想吃等">
+                                            跳过此餐
+                                        </button>
+                                    </form>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Daily Price Card -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center h-100">
+                <div class="card-body">
+                    <i class="bi bi-wallet2 text-info fs-3"></i>
+                    <h4 class="mt-2">¥{{ daily_price | round(2) }}</h4>
+                    <small class="text-muted">今日餐饮消费</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center h-100">
+                <div class="card-body">
+                    <i class="bi bi-check-circle text-success fs-3"></i>
+                    <h4 class="mt-2">{{ meal_status.real_count }}/{{ meal_status.total_expected - meal_status.skipped_count }}</h4>
+                    <small class="text-muted">三餐完成度 ({{ meal_status.completion_rate }}%)</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nutrition Cards -->
+    <div class="row g-3 mb-4">
+        {% set totals = daily_analysis.totals %}
+        {% set pcts = daily_analysis.percentages %}
+        {% set targets = daily_analysis.targets %}
+        {% set items = [
+            ('热量', 'bi-fire', totals.calories, targets.calories, pcts.calories, '千卡'),
+            ('蛋白质', 'bi-egg-fill', totals.protein, targets.protein, pcts.protein, 'g'),
+            ('脂肪', 'bi-droplet-fill', totals.fat, targets.fat, pcts.fat, 'g'),
+            ('碳水', 'bi-circle-fill', totals.carbs, targets.carbs, pcts.carbs, 'g'),
+        ] %}
+        {% for label, icon, val, target, pct, unit in items %}
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi {{ icon }} fs-3 text-primary"></i>
+                    <h5 class="mt-2 mb-1">{{ val | round | int }}</h5>
+                    <small class="text-muted">{{ unit }} / {{ target | int }} {{ unit }}</small>
+                    <div class="progress mt-2" style="height: 6px;">
+                        <div class="progress-bar {% if pct > 100 %}bg-danger{% elif pct > 80 %}bg-warning{% else %}bg-success{% endif %}"
+                             style="width: {{ [pct, 100] | min }}%"></div>
+                    </div>
+                    <small class="{% if pct > 100 %}text-danger{% else %}text-muted{% endif %}">{{ pct }}%</small>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row mb-4">
+        <div class="col-lg-7">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> 7日热量与消费趋势</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="weeklyChart" height="280"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-pie-chart"></i> 今日营养素配比</h5>
+                </div>
+                <div class="card-body d-flex align-items-center">
+                    <canvas id="macroChart" style="max-height: 260px;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tips -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-lightbulb"></i> 今日贴士</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <small><i class="bi bi-check-circle text-success"></i> 早餐占全天热量30%最佳</small>
+                        </div>
+                        <div class="col-md-3">
+                            <small><i class="bi bi-info-circle text-primary"></i> 每天至少摄入25g膳食纤维</small>
+                        </div>
+                        <div class="col-md-3">
+                            <small><i class="bi bi-info-circle text-primary"></i> 饮水1.5-2L有助于代谢</small>
+                        </div>
+                        <div class="col-md-3">
+                            <small><i class="bi bi-exclamation-triangle text-warning"></i> 减重期间最低不低于1200千卡/天</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script>
+    const weekData = {{ week_data | tojson }};
+    const dailyAnalysis = {{ daily_analysis | tojson }};
+    initDashboardCharts(weekData, dailyAnalysis);
+</script>
+{% endblock %}

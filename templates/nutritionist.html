@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}AI营养师 - NutriSnap{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <!-- Chat Panel -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white d-flex align-items-center">
+                    <div class="me-3">
+                        <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 45px; height: 45px;">
+                            <i class="bi bi-robot text-white fs-5"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <h5 class="mb-0">小营 - AI营养师</h5>
+                        <small class="text-success"><i class="bi bi-circle-fill small"></i> 在线</small>
+                    </div>
+                </div>
+
+                <!-- Chat Messages -->
+                <div class="card-body chat-messages" id="chatMessages" style="height: 450px; overflow-y: auto;">
+                    <!-- Welcome message -->
+                    <div class="chat-message assistant mb-3">
+                        <div class="d-flex">
+                            <div class="me-2">
+                                <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                    <i class="bi bi-robot text-white small"></i>
+                                </div>
+                            </div>
+                            <div class="chat-bubble bg-light rounded p-3" style="max-width: 80%;">
+                                <p class="mb-0">你好！我是你的AI营养师小营 🥗<br><br>
+                                我可以帮你：<br>
+                                • 分析你的饮食记录，给出专业建议<br>
+                                • 回答营养和健康饮食的问题<br>
+                                • 根据你的目标制定个性化饮食计划<br>
+                                • 追踪你的饮食习惯变化<br><br>
+                                今天有什么想了解的？</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% for msg in chat_history %}
+                    <div class="chat-message {{ msg.role }} mb-3">
+                        <div class="d-flex {% if msg.role == 'user' %}justify-content-end{% endif %}">
+                            {% if msg.role == 'assistant' %}
+                            <div class="me-2">
+                                <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                    <i class="bi bi-robot text-white small"></i>
+                                </div>
+                            </div>
+                            {% endif %}
+                            <div class="chat-bubble rounded p-3 {% if msg.role == 'user' %}bg-primary text-white{% else %}bg-light{% endif %}" style="max-width: 80%;">
+                                <p class="mb-0" style="white-space: pre-wrap;">{{ msg.content }}</p>
+                                <small class="{% if msg.role == 'user' %}text-white-50{% else %}text-muted{% endif %}">
+                                    {{ msg.created_at.strftime('%H:%M') }}
+                                </small>
+                            </div>
+                            {% if msg.role == 'user' %}
+                            <div class="ms-2">
+                                <div class="bg-secondary rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                    <i class="bi bi-person text-white small"></i>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Quick Questions -->
+                <div class="card-body border-top">
+                    <div class="d-flex flex-wrap gap-2 mb-3" id="quickQuestions">
+                        <button class="btn btn-outline-primary btn-sm quick-btn" data-question="今天我的饮食怎么样？">今天饮食怎么样？</button>
+                        <button class="btn btn-outline-primary btn-sm quick-btn" data-question="帮我推荐一份健康的晚餐">推荐晚餐</button>
+                        <button class="btn btn-outline-primary btn-sm quick-btn" data-question="怎么合理减重？">怎么减重？</button>
+                        <button class="btn btn-outline-primary btn-sm quick-btn" data-question="蛋白质每天应该吃多少？">蛋白质吃多少？</button>
+                        <button class="btn btn-outline-primary btn-sm quick-btn" data-question="分析一下我最近的饮食习惯">分析饮食习惯</button>
+                        <button class="btn btn-outline-primary btn-sm quick-btn" data-question="给我制定一份增肌食谱">制定增肌食谱</button>
+                    </div>
+
+                    <!-- Input Area -->
+                    <form id="chatForm" class="d-flex gap-2">
+                        <input type="text" class="form-control" id="chatInput" placeholder="输入你的问题..." autocomplete="off">
+                        <button type="submit" class="btn btn-primary" id="sendBtn">
+                            <i class="bi bi-send"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Side Info -->
+        <div class="col-lg-4">
+            <!-- User Profile Card -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-person-badge"></i> 我的档案</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row small g-2">
+                        {% if current_user.height %}
+                        <div class="col-6"><span class="text-muted">身高:</span> {{ current_user.height }}cm</div>
+                        {% endif %}
+                        {% if current_user.weight %}
+                        <div class="col-6"><span class="text-muted">体重:</span> {{ current_user.weight }}kg</div>
+                        {% endif %}
+                        {% if current_user.age %}
+                        <div class="col-6"><span class="text-muted">年龄:</span> {{ current_user.age }}岁</div>
+                        {% endif %}
+                        {% if current_user.gender %}
+                        <div class="col-6"><span class="text-muted">性别:</span> {{ '男' if current_user.gender == 'male' else '女' }}</div>
+                        {% endif %}
+                        {% if current_user.goal %}
+                        <div class="col-12">
+                            <span class="text-muted">目标:</span>
+                            <span class="badge {% if current_user.goal == 'lose' %}bg-warning{% elif current_user.goal == 'gain' %}bg-success{% else %}bg-primary{% endif %}">
+                                {% if current_user.goal == 'lose' %}减重
+                                {% elif current_user.goal == 'gain' %}增肌
+                                {% else %}维持体重{% endif %}
+                            </span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tips Card -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-chat-quote"></i> 可以这样问我</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="small list-unstyled mb-0">
+                        <li class="mb-2">💬 "我今天的蛋白质摄入够了吗？"</li>
+                        <li class="mb-2">💬 "给我推荐一份低卡午餐"</li>
+                        <li class="mb-2">💬 "怎么吃才能增肌不增脂？"</li>
+                        <li class="mb-2">💬 "晚上吃什么不容易胖？"</li>
+                        <li class="mb-2">💬 "帮我分析一下这周的饮食"</li>
+                        <li class="mb-2">💬 "减重期间可以吃火锅吗？"</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+{% endblock %}
