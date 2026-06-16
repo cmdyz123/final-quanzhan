@@ -506,3 +506,90 @@ def daily_summary():
         },
         'ai_summary': ai_summary
     })
+
+
+@api_bp.route('/api/meal/<int:meal_id>/append', methods=['POST'])
+@login_required
+def meal_append(meal_id):
+    """Append food items to an existing meal record.
+    Body: {foods: [{name, portion_g}]} or {text: "猪脚饭加卤蛋"}
+    """
+    meal = MealRecord.query.get_or_404(meal_id)
+    if meal.user_id != current_user.id:
+        return jsonify({'error': '无权操作'}), 403
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': '请提供食物数据'}), 400
+
+    # Support both quick text and explicit food list
+    if 'text' in data and data['text'].strip():
+        new_foods = parse_food_text(data['text'].strip())
+    elif 'foods' in data and data['foods']:
+        new_foods = []
+        for item in data['foods']:
+            name = item.get('name', '').strip()
+            portion = float(item.get('portion_g', 100))
+            nutrition = get_food_nutrition(name)
+            if not nutrition:
+                search_results = search_food(name, limit=1)
+                if search_results:
+                    name = search_results[0]['name']
+                    nutrition = search_results[0]['nutrition']
+                else:
+                    nutrition = {'calories': 100, 'protein': 5, 'fat': 3, 'carbs': 15, 'fiber': 1}
+            new_foods.append({
+                'name': name, 'name_en': name,
+                'confidence': 1.0, 'portion_g': portion,
+                'nutrition': dict(nutrition)
+            })
+    else:
+        return jsonify({'error': '请提供食物数据 (foods 或 text)'}), 400
+
+    if not new_foods:
+        return jsonify({'error': '未识别到食物'}), 400
+
+    # Merge with existing foods
+    existing_foods = meal.get_foods()
+    all_foods = existing_foods + new_foods
+
+    # Recalculate nutrition
+    total_nutrition = {'calories': 0, 'protein': 0, 'fat': 0, 'carbs': 0, 'fiber': 0}
+    for f in all_foods:
+        nut = f.get('nutrition', {})
+        portion = f.get('portion_g', 100)
+        factor = portion / 100.0
+        for k in total_nutrition:
+            total_nutrition[k] += nut.get(k, 0) * factor
+
+    for k in total_nutrition:
+        total_nutrition[k] = round(total_nutrition[k], 1)
+
+    meal.set_foods(all_foods)
+    meal.set_nutrition(total_nutrition)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'meal_id': meal.id,
+        'added_foods': [f['name'] for f in new_foods],
+        'foods': all_foods,
+        'nutrition': total_nutrition
+    })
+
+
+@api_bp.route('/api/meal/<int:meal_id>', methods=['DELETE'])
+@login_required
+def meal_delete_api(meal_id):
+    """Delete a meal record via API (for AJAX calls)"""
+    meal = MealRecord.query.get_or_404(meal_id)
+    if meal.user_id != current_user.id:
+        return jsonify({'error': '无权操作'}), 403
+
+    if meal.image_path and os.path.exists(meal.image_path):
+        os.remove(meal.image_path)
+
+    db.session.delete(meal)
+    db.session.commit()
+
+    return jsonify({'success': True})

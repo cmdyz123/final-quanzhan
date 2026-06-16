@@ -76,6 +76,29 @@
                                         {{ food.name }}{% if not loop.last %}、{% endif %}
                                     {% endfor %}
                                 </div>
+                                <!-- Action buttons -->
+                                <div class="mt-2 d-flex gap-1">
+                                    <button class="btn btn-sm btn-outline-success" onclick="showAddFood({{ ms.record.id }}, '{{ mt }}')" title="追加食物">
+                                        <i class="bi bi-plus-circle"></i> 加菜
+                                    </button>
+                                    <form method="POST" action="{{ url_for('meal.meal_delete', meal_id=ms.record.id) }}"
+                                          onsubmit="return confirm('确定删除{{ label }}记录吗？')" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="删除此餐">
+                                            <i class="bi bi-trash"></i> 删除
+                                        </button>
+                                    </form>
+                                </div>
+                                <!-- Inline add food form (hidden by default) -->
+                                <div id="addFoodForm_{{ ms.record.id }}" class="mt-2 p-2 bg-light rounded d-none">
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" id="addFoodInput_{{ ms.record.id }}" class="form-control"
+                                               placeholder="如：卤蛋、酸菜"
+                                               onkeydown="if(event.key==='Enter'){appendFood({{ ms.record.id }});event.preventDefault();}">
+                                        <button class="btn btn-success" onclick="appendFood({{ ms.record.id }})">追加</button>
+                                        <button class="btn btn-outline-secondary" onclick="hideAddFood({{ ms.record.id }})">取消</button>
+                                    </div>
+                                    <small class="text-muted">输入食物名或用「加」分隔多个，如「卤蛋加青菜」</small>
+                                </div>
                             {% elif ms.status == 'skipped' %}
                                 <small class="text-warning fw-bold">⏭️ 已跳过</small>
                                 <div class="mt-1">
@@ -241,5 +264,52 @@
     const dailyAnalysis = {{ daily_analysis | tojson }};
     initDashboardCharts(weekData, dailyAnalysis);
     loadDailySummary();
+
+    // Meal edit functions
+    function showAddFood(mealId, mealType) {
+        var form = document.getElementById('addFoodForm_' + mealId);
+        if (form) {
+            form.classList.remove('d-none');
+            var input = document.getElementById('addFoodInput_' + mealId);
+            if (input) setTimeout(function() { input.focus(); }, 100);
+        }
+    }
+    function hideAddFood(mealId) {
+        var form = document.getElementById('addFoodForm_' + mealId);
+        if (form) form.classList.add('d-none');
+    }
+    function appendFood(mealId) {
+        var input = document.getElementById('addFoodInput_' + mealId);
+        if (!input) return;
+        var text = input.value.trim();
+        if (!text) { alert('请输入食物名称'); return; }
+
+        var btn = input.parentElement.querySelector('.btn-success');
+        var origText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '...';
+
+        fetch('/api/meal/' + mealId + '/append', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: text })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                alert('已追加: ' + data.added_foods.join('、') + '\n总热量: ' + data.nutrition.calories + '千卡');
+                location.reload();
+            } else {
+                alert('追加失败: ' + (data.error || '未知错误'));
+            }
+            btn.disabled = false;
+            btn.textContent = origText;
+        })
+        .catch(function(err) {
+            alert('网络错误: ' + err.message);
+            btn.disabled = false;
+            btn.textContent = origText;
+        });
+    }
 </script>
 {% endblock %}
