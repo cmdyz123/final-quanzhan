@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NutriSnap 项目报告</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+<style>
+:root {
+  --green: #1cc88a;
+  --green-dark: #13855c;
+  --blue: #4e73df;
+  --red: #e74a3b;
+  --orange: #f6c23e;
+  --cyan: #36b9cc;
+}
+body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; color: #333; background: #f8f9fc; }
+.nav-report { background: linear-gradient(135deg, var(--green-dark), var(--green)); padding: 12px 0; position: sticky; top: 0; z-index: 100; }
+.nav-report a { color: rgba(255,255,255,.85); text-decoration: none; font-size: 14px; margin: 0 14px; transition: .2s; }
+.nav-report a:hover { color: #fff; }
+.hero { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); padding: 80px 0; text-align: center; color: white; position: relative; overflow: hidden; }
+.hero::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(28,200,138,.08) 0%, transparent 60%); }
+.hero h1 { font-size: 56px; font-weight: 800; letter-spacing: -1px; }
+.hero .tagline { font-size: 22px; color: #1cc88a; margin-top: 12px; }
+.hero .sub { font-size: 15px; color: rgba(255,255,255,.55); margin-top: 20px; }
+.section { padding: 60px 0; }
+.section-alt { background: #fff; }
+.section-title { font-size: 28px; font-weight: 700; margin-bottom: 8px; color: #1a1a2e; }
+.section-sub { color: #888; font-size: 15px; margin-bottom: 40px; }
+.card-feature { border: none; border-radius: 12px; box-shadow: 0 2px 15px rgba(0,0,0,.06); transition: transform .2s, box-shadow .2s; height: 100%; }
+.card-feature:hover { transform: translateY(-3px); box-shadow: 0 6px 25px rgba(0,0,0,.1); }
+.card-feature .icon { font-size: 36px; }
+.card-stat { border: none; border-radius: 12px; padding: 24px; text-align: center; }
+.card-stat .num { font-size: 36px; font-weight: 800; }
+.card-stat .lbl { font-size: 13px; color: #888; margin-top: 4px; }
+.tech-card { border: none; border-radius: 12px; padding: 28px; height: 100%; box-shadow: 0 2px 15px rgba(0,0,0,.05); }
+.tech-card h5 { font-weight: 700; margin-bottom: 16px; }
+.tech-card li { font-size: 14px; margin-bottom: 6px; color: #555; }
+.db-table { width: 100%; border-radius: 10px; overflow: hidden; }
+.db-table th { background: var(--green); color: white; font-weight: 600; font-size: 13px; padding: 10px 14px; }
+.db-table td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #eee; background: #fff; }
+.db-table tr:hover td { background: #f0fdf6; }
+.api-table th { background: #1a1a2e; color: white; font-size: 12px; padding: 8px 12px; }
+.api-table td { font-size: 13px; padding: 9px 12px; border-bottom: 1px solid #eee; vertical-align: middle; }
+.method-badge { display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: .5px; }
+.method-GET { background: #e8f0fe; color: #1967d2; }
+.method-POST { background: #e6f4ea; color: #137333; }
+.method-DELETE { background: #fce8e6; color: #c5221f; }
+.timeline { position: relative; padding-left: 30px; }
+.timeline::before { content: ''; position: absolute; left: 12px; top: 0; bottom: 0; width: 3px; background: #e0e0e0; border-radius: 2px; }
+.timeline-step { position: relative; margin-bottom: 28px; }
+.timeline-step::before { content: ''; position: absolute; left: -24px; top: 4px; width: 16px; height: 16px; border-radius: 50%; background: var(--green); border: 3px solid #fff; box-shadow: 0 0 0 3px var(--green); }
+.highlight-box { background: linear-gradient(135deg, #f0fdf6, #e8f5e9); border-left: 4px solid var(--green); border-radius: 0 10px 10px 0; padding: 20px 24px; margin: 16px 0; }
+.food-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.food-cat { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 6px rgba(0,0,0,.04); }
+.food-cat .cat-name { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+.food-cat .cat-items { font-size: 12px; color: #888; line-height: 1.8; }
+footer { background: #1a1a2e; color: rgba(255,255,255,.6); padding: 30px 0; text-align: center; font-size: 13px; }
+.gradient-text { background: linear-gradient(135deg, #1cc88a, #36b9cc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+@media print {
+  .nav-report { display: none; }
+  .section { padding: 30px 0; page-break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="nav-report text-center">
+  <a href="#overview">项目简介</a>
+  <a href="#tech">技术架构</a>
+  <a href="#database">数据库</a>
+  <a href="#features">核心功能</a>
+  <a href="#ai">AI 能力</a>
+  <a href="#food-db">食物库</a>
+  <a href="#user-flow">用户流程</a>
+  <a href="#highlights">功能亮点</a>
+  <a href="#api">API 接口</a>
+  <a href="#summary">总结</a>
+</nav>
+
+<!-- Hero -->
+<header class="hero">
+  <div class="container">
+    <h1>NutriSnap</h1>
+    <div class="tagline">AI 智能营养管家</div>
+    <div class="sub">拍一拍，吃得更明白 &nbsp;|&nbsp; 拍照识别 · 营养分析 · AI 营养师 · 智能食谱<br>
+    Flask + SQLite + DeepSeek AI &nbsp;|&nbsp; 2026年6月</div>
+  </div>
+</header>
+
+<!-- ==================== 项目简介 ==================== -->
+<section class="section" id="overview">
+  <div class="container">
+    <h2 class="section-title">项目简介</h2>
+    <p class="section-sub">What is NutriSnap</p>
+
+    <div class="row g-4">
+      <div class="col-lg-7">
+        <div class="highlight-box">
+          <p class="mb-0" style="font-size:16px;line-height:1.8;">
+            NutriSnap 是一款基于 AI 的智能营养管理 Web 应用。<br>
+            用户通过 <strong>拍照上传食物图片</strong>，AI 自动识别食物种类，计算营养成分，生成饮食报告。<br>
+            内置 <strong>200+ 种中式食物</strong>营养数据库，覆盖米饭面条、盖饭煲仔、火锅麻辣、烧腊卤味等中国日常饮食。<br>
+            从 <strong>"拍一张照片"</strong> 开始，让每一餐都吃得明明白白。
+          </p>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="row g-3">
+          <div class="col-6">
+            <div class="card-stat" style="background:#e8f5e9;">
+              <div class="num" style="color:var(--green);">200+</div><div class="lbl">中式食物数据库</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="card-stat" style="background:#e8f0fe;">
+              <div class="num" style="color:var(--blue);">2</div><div class="lbl">运行模式</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="card-stat" style="background:#fef7e0;">
+              <div class="num" style="color:var(--orange);">10+</div><div class="lbl">API 端点</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="card-stat" style="background:#fce8e6;">
+              <div class="num" style="color:var(--red);">4</div><div class="lbl">AI 智能能力</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 技术架构 ==================== -->
+<section class="section section-alt" id="tech">
+  <div class="container">
+    <h2 class="section-title">技术架构</h2>
+    <p class="section-sub">Tech Stack</p>
+
+    <div class="row g-4">
+      <div class="col-md-4">
+        <div class="tech-card" style="border-top: 4px solid var(--green);">
+          <h5>🖥 后端 Backend</h5>
+          <ul class="list-unstyled mb-0">
+            <li>✓ Python 3 + Flask 3.0</li>
+            <li>✓ Flask-SQLAlchemy ORM</li>
+            <li>✓ Flask-Login 认证</li>
+            <li>✓ SQLite 数据库</li>
+            <li>✓ Blueprint 模块路由</li>
+            <li>✓ RESTful API 设计</li>
+            <li>✓ 4 路由蓝图</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="tech-card" style="border-top: 4px solid var(--blue);">
+          <h5>🎨 前端 Frontend</h5>
+          <ul class="list-unstyled mb-0">
+            <li>✓ Jinja2 模板引擎</li>
+            <li>✓ Bootstrap 5 响应式</li>
+            <li>✓ Bootstrap Icons 图标</li>
+            <li>✓ Chart.js 可视化</li>
+            <li>✓ 原生 JavaScript</li>
+            <li>✓ AJAX Fetch API</li>
+            <li>✓ 11 个 HTML 页面</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="tech-card" style="border-top: 4px solid var(--red);">
+          <h5>🧠 AI 引擎</h5>
+          <ul class="list-unstyled mb-0">
+            <li>✓ OpenAI 兼容 API</li>
+            <li>✓ DeepSeek 大模型</li>
+            <li>✓ 视觉识别双通道</li>
+            <li>✓ 自然语言对话</li>
+            <li>✓ AIGC 饮食计划</li>
+            <li>✓ 每日 AI 总结</li>
+            <li>✓ 200+ 食物数据库</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="highlight-box mt-4" style="font-family:monospace;font-size:13px;line-height:2;white-space:pre-line;">
+📱 用户浏览器
+   │
+   ▼
+🌐 Flask Web Server (app.py)
+   │
+   ├── 🔐 auth.py  → 注册 / 登录 / 登出
+   ├── 📊 main.py  → 仪表盘 / 报告 / AI营养师页面
+   ├── 🍽 meal.py   → 餐食上传 / 记录 / 删除 / 跳过 / 饮食计划
+   └── 🔌 api.py    → REST API（搜索/记录/聊天/统计/总结）
+   │
+   ├── 🧠 ai/ 模块
+   │   ├── food_recognition.py  → 食物图像识别
+   │   ├── nutrition_analysis.py → 营养分析
+   │   └── ai_nutritionist.py   → AI 营养师
+   │
+   ├── 📦 models.py → 5 张数据表
+   └── 🗄 SQLite → nutrisnap.db
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 数据库设计 ==================== -->
+<section class="section" id="database">
+  <div class="container">
+    <h2 class="section-title">数据库设计</h2>
+    <p class="section-sub">Database Schema — 5 张核心表</p>
+
+    <table class="db-table">
+      <thead>
+        <tr><th style="width:15%">表名</th><th style="width:15%">说明</th><th>字段</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>users</code></td><td>用户表</td><td>id, username, email, password_hash, height, weight, age, gender, goal, created_at</td></tr>
+        <tr><td><code>meal_records</code></td><td>餐食记录</td><td>id, user_id, meal_type, image_path, recognized_foods(JSON), nutrition_data(JSON), price, input_method, skipped, notes, created_at</td></tr>
+        <tr><td><code>daily_goals</code></td><td>每日目标</td><td>id, user_id, date, target_calories, target_protein, target_fat, target_carbs</td></tr>
+        <tr><td><code>chat_history</code></td><td>聊天历史</td><td>id, user_id, role(user/assistant), content, created_at</td></tr>
+        <tr><td><code>meal_plans</code></td><td>饮食计划</td><td>id, user_id, date, meal_type, foods(JSON), nutrition_summary(JSON), generated_by, created_at</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ==================== 核心功能 ==================== -->
+<section class="section section-alt" id="features">
+  <div class="container">
+    <h2 class="section-title">核心功能</h2>
+    <p class="section-sub">Core Features</p>
+
+    <div class="row g-4">
+      <div class="col-md-3">
+        <div class="card-feature card p-3 text-center">
+          <div class="icon mb-2">📸</div>
+          <h6 class="fw-bold">拍照识食</h6>
+          <small class="text-muted">上传食物照片<br>AI 自动识别<br>计算营养成分</small>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card-feature card p-3 text-center">
+          <div class="icon mb-2">⌨️</div>
+          <h6 class="fw-bold">文字快录</h6>
+          <small class="text-muted">输入"猪脚饭加卤蛋"<br>自动拆分+匹配<br>一键完成记录</small>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card-feature card p-3 text-center">
+          <div class="icon mb-2">📊</div>
+          <h6 class="fw-bold">营养仪表盘</h6>
+          <small class="text-muted">今日营养摄入<br>三餐状态跟踪<br>7日趋势图表</small>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card-feature card p-3 text-center">
+          <div class="icon mb-2">🤖</div>
+          <h6 class="fw-bold">AI 营养师</h6>
+          <small class="text-muted">多轮对话聊天<br>个性化建议<br>结合今日饮食</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4 mt-2">
+      <div class="col-md-3">
+        <div class="card-feature card p-3 text-center">
+          <div class="icon mb-2">📅</div>
+          <h6 class="fw-bold">饮食计划</h6>
+          <small class="text-muted">根据目标生成食谱<br>早午晚三餐搭配<br>热量+营养贴士</small>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card-feature card p-3 text-center">
+          <div class="icon mb-2">📈</div>
+          <h6 class="fw-bold">营养报告</h6>
+          <small class="text-muted">30天趋势图<br>日均统计+分析<br>CSV 导出</small>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card-feature card p-3 text-center">
+          <div class="icon mb-2">⭐</div>
+          <h6 class="fw-bold">常吃推荐</h6>
+          <small class="text-muted">高频食物统计<br>常见搭配复用<br>点击即记录</small>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card-feature card p-3 text-center">
+          <div class="icon mb-2">👤</div>
+          <h6 class="fw-bold">用户系统</h6>
+          <small class="text-muted">注册/登录<br>身体数据+目标<br>个性化推荐</small>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== AI 能力 ==================== -->
+<section class="section" id="ai">
+  <div class="container">
+    <h2 class="section-title">AI 能力详解</h2>
+    <p class="section-sub">DeepSeek 大模型驱动</p>
+
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <div class="card p-4" style="border:none;border-radius:12px;box-shadow:0 2px 15px rgba(0,0,0,.05);">
+          <h5 class="fw-bold mb-3">🍱 食物图像识别</h5>
+          <ul class="mb-0" style="font-size:14px;line-height:2;">
+            <li>拍照上传，自动识别食物种类</li>
+            <li>色彩分析 + DeepSeek 文本推理双通道</li>
+            <li>兼容视觉 API (GPT-4o) 和纯文本 API</li>
+            <li>200+ 中式食物数据库精准匹配</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card p-4" style="border:none;border-radius:12px;box-shadow:0 2px 15px rgba(0,0,0,.05);">
+          <h5 class="fw-bold mb-3">💬 AI 营养师对话</h5>
+          <ul class="mb-0" style="font-size:14px;line-height:2;">
+            <li>个性化多轮对话，记住目标和偏好</li>
+            <li>结合当日饮食数据针对性建议</li>
+            <li>支持减重/增肌/维持等多场景</li>
+            <li>全站浮动聊天窗口，随时提问</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card p-4" style="border:none;border-radius:12px;box-shadow:0 2px 15px rgba(0,0,0,.05);">
+          <h5 class="fw-bold mb-3">📋 智能饮食计划</h5>
+          <ul class="mb-0" style="font-size:14px;line-height:2;">
+            <li>根据目标热量自动生成三餐搭配</li>
+            <li>考虑已摄入量，智能计算剩余</li>
+            <li>每餐含食物/分量/热量/贴士</li>
+            <li>支持 API 模式 AIGC 个性化生成</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card p-4" style="border:none;border-radius:12px;box-shadow:0 2px 15px rgba(0,0,0,.05);">
+          <h5 class="fw-bold mb-3">📝 每日 AI 总结</h5>
+          <ul class="mb-0" style="font-size:14px;line-height:2;">
+            <li>三餐记录完毕自动触发 AI 总结</li>
+            <li>包含回顾、评估、建议、评分</li>
+            <li>可查看任意历史日期的总结</li>
+            <li>DeepSeek 实时生成个性化内容</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 食物数据库 ==================== -->
+<section class="section section-alt" id="food-db">
+  <div class="container">
+    <h2 class="section-title">内置食物营养数据库</h2>
+    <p class="section-sub">200+ 种中式食物 — 每100g营养成分</p>
+
+    <div class="food-grid">
+      <div class="food-cat"><div class="cat-name">🍚 主食/粉面/早餐</div><div class="cat-items">米饭、面条、河粉、肠粉、馒头、包子、油条、红薯、豆浆、小笼包、烧麦、虾饺、凤爪、糯米鸡、煎饼果子…</div></div>
+      <div class="food-cat"><div class="cat-name">🥩 肉类/蛋白质</div><div class="cat-items">鸡胸肉、鸡腿、牛肉、猪肉、瘦肉、猪蹄、牛腩、羊肉、鸡蛋、水煮蛋、煎蛋…</div></div>
+      <div class="food-cat"><div class="cat-name">🐟 水产海鲜</div><div class="cat-items">三文鱼、虾仁、鱼片、鱿鱼、螃蟹、花甲、生蚝、带鱼、鲈鱼…</div></div>
+      <div class="food-cat"><div class="cat-name">🥬 蔬菜/豆制品</div><div class="cat-items">西兰花、菠菜、番茄、黄瓜、土豆、豆腐、豆芽、腐竹、玉米、香菇、海带…</div></div>
+      <div class="food-cat"><div class="cat-name">🍲 中式热菜</div><div class="cat-items">红烧肉、宫保鸡丁、麻婆豆腐、鱼香肉丝、酸菜鱼、回锅肉、糖醋里脊、白切鸡…</div></div>
+      <div class="food-cat"><div class="cat-name">🍱 盖饭/煲仔饭</div><div class="cat-items">猪脚饭、鸡腿饭、叉烧饭、卤肉饭、煲仔饭、蛋炒饭、扬州炒饭、滑蛋牛肉饭…</div></div>
+      <div class="food-cat"><div class="cat-name">🌶️ 麻辣/火锅</div><div class="cat-items">火锅、麻辣烫、冒菜、干锅、麻辣香锅…</div></div>
+      <div class="food-cat"><div class="cat-name">🍣 日韩/西式</div><div class="cat-items">寿司、拉面、披萨、汉堡、意大利面、沙拉、乌冬面、石锅拌饭…</div></div>
+      <div class="food-cat"><div class="cat-name">🍎 水果/饮品</div><div class="cat-items">苹果、香蕉、葡萄、奶茶、咖啡、拿铁、可乐、啤酒、红酒、橙汁…</div></div>
+      <div class="food-cat"><div class="cat-name">🍪 甜品/零食</div><div class="cat-items">蛋糕、冰淇淋、巧克力、饼干、薯片、坚果、蛋挞、双皮奶…</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 用户流程 ==================== -->
+<section class="section" id="user-flow">
+  <div class="container">
+    <h2 class="section-title">用户使用流程</h2>
+    <p class="section-sub">从注册到每日使用</p>
+
+    <div class="row g-4">
+      <div class="col-md-2 text-center">
+        <div style="width:60px;height:60px;border-radius:50%;background:var(--green);color:white;font-size:24px;font-weight:800;line-height:60px;margin:0 auto;">1</div>
+        <h6 class="mt-3 fw-bold">注册账户</h6>
+        <small class="text-muted">填写信息<br>设置健康目标</small>
+      </div>
+      <div class="col-md-2 text-center">
+        <div style="width:60px;height:60px;border-radius:50%;background:var(--green);color:white;font-size:24px;font-weight:800;line-height:60px;margin:0 auto;">2</div>
+        <h6 class="mt-3 fw-bold">记录第一餐</h6>
+        <small class="text-muted">拍照或打字<br>记录早餐</small>
+      </div>
+      <div class="col-md-2 text-center">
+        <div style="width:60px;height:60px;border-radius:50%;background:var(--green);color:white;font-size:24px;font-weight:800;line-height:60px;margin:0 auto;">3</div>
+        <h6 class="mt-3 fw-bold">查看仪表盘</h6>
+        <small class="text-muted">营养数据<br>一目了然</small>
+      </div>
+      <div class="col-md-2 text-center">
+        <div style="width:60px;height:60px;border-radius:50%;background:var(--green);color:white;font-size:24px;font-weight:800;line-height:60px;margin:0 auto;">4</div>
+        <h6 class="mt-3 fw-bold">完成全天</h6>
+        <small class="text-muted">三餐全部<br>记录或跳过</small>
+      </div>
+      <div class="col-md-2 text-center">
+        <div style="width:60px;height:60px;border-radius:50%;background:var(--blue);color:white;font-size:24px;font-weight:800;line-height:60px;margin:0 auto;">5</div>
+        <h6 class="mt-3 fw-bold">AI 总结</h6>
+        <small class="text-muted">自动分析<br>评分+建议</small>
+      </div>
+      <div class="col-md-2 text-center">
+        <div style="width:60px;height:60px;border-radius:50%;background:var(--blue);color:white;font-size:24px;font-weight:800;line-height:60px;margin:0 auto;">6</div>
+        <h6 class="mt-3 fw-bold">查看报告</h6>
+        <small class="text-muted">30天数据<br>导出分享</small>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 功能亮点 ==================== -->
+<section class="section section-alt" id="highlights">
+  <div class="container">
+    <h2 class="section-title">功能亮点</h2>
+    <p class="section-sub">Feature Highlights</p>
+
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <div class="card p-4" style="border:none;border-radius:12px;box-shadow:0 2px 15px rgba(0,0,0,.05);">
+          <h5 class="fw-bold">⚡ 快速文字输入</h5>
+          <p class="text-muted mb-0">输入"猪脚饭加卤蛋"，AI 自动拆分为猪脚饭 + 卤蛋，识别、计算营养、保存一步到位。支持「加、+、和、配」等多种分隔符。</p>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card p-4" style="border:none;border-radius:12px;box-shadow:0 2px 15px rgba(0,0,0,.05);">
+          <h5 class="fw-bold">⭐ 常吃食物推荐</h5>
+          <p class="text-muted mb-0">自动统计用户高频食物和常见搭配。点击按钮一键复用，告别重复输入。新用户数据不足时显示空状态引导。</p>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card p-4" style="border:none;border-radius:12px;box-shadow:0 2px 15px rgba(0,0,0,.05);">
+          <h5 class="fw-bold">🤖 全站浮动答疑</h5>
+          <p class="text-muted mb-0">右下角 AI 聊天窗口，任何页面随时提问。预设快捷问题，DeepSeek 实时回复。打字动画、移动端适配。</p>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card p-4" style="border:none;border-radius:12px;box-shadow:0 2px 15px rgba(0,0,0,.05);">
+          <h5 class="fw-bold">📅 历史日期导航</h5>
+          <p class="text-muted mb-0">仪表盘和记录页支持前后翻页，查看任意历史日期的饮食数据和 AI 总结。一键回到今天。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== API 接口 ==================== -->
+<section class="section" id="api">
+  <div class="container">
+    <h2 class="section-title">API 接口一览</h2>
+    <p class="section-sub">10 REST Endpoints</p>
+
+    <table class="api-table table" style="border-radius:10px;overflow:hidden;">
+      <thead>
+        <tr><th style="width:8%">方法</th><th style="width:23%">路径</th><th style="width:14%">功能</th><th>说明</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="method-badge method-GET">GET</span></td>
+          <td><code>/api/search-food</code></td><td>食物搜索</td>
+          <td><code>?q=关键词</code> → 模糊匹配200+ 数据库</td>
+        </tr>
+        <tr>
+          <td><span class="method-badge method-POST">POST</span></td>
+          <td><code>/api/quick-record</code></td><td>快速记录</td>
+          <td><code>{"text": "猪脚饭加卤蛋"}</code> → 拆分+保存</td>
+        </tr>
+        <tr>
+          <td><span class="method-badge method-POST">POST</span></td>
+          <td><code>/api/manual-record</code></td><td>手动记录</td>
+          <td><code>{"foods": [...], "meal_type"}</code> → 逐项保存</td>
+        </tr>
+        <tr>
+          <td><span class="method-badge method-POST">POST</span></td>
+          <td><code>/api/analyze-food</code></td><td>图片分析</td>
+          <td>multipart image → AI识别+营养计算</td>
+        </tr>
+        <tr>
+          <td><span class="method-badge method-POST">POST</span></td>
+          <td><code>/api/chat</code></td><td>AI 对话</td>
+          <td><code>{"message": "…"}</code> → 营养师回复</td>
+        </tr>
+        <tr>
+          <td><span class="method-badge method-GET">GET</span></td>
+          <td><code>/api/daily-summary</code></td><td>每日总结</td>
+          <td><code>?date=2026-06-16</code> → AI 生成总结</td>
+        </tr>
+        <tr>
+          <td><span class="method-badge method-GET">GET</span></td>
+          <td><code>/api/frequent-foods</code></td><td>常吃统计</td>
+          <td><code>?n=50&top_n=6</code> → 高频食物</td>
+        </tr>
+        <tr>
+          <td><span class="method-badge method-GET">GET</span></td>
+          <td><code>/api/daily-stats</code></td><td>每日统计</td>
+          <td>→ 今日营养汇总+目标对比</td>
+        </tr>
+        <tr>
+          <td><span class="method-badge method-POST">POST</span></td>
+          <td><code>/api/meal/&lt;id&gt;/append</code></td><td>追加食物</td>
+          <td><code>{"text": "卤蛋"}</code> → 合并到已有餐食</td>
+        </tr>
+        <tr>
+          <td><span class="method-badge method-DELETE">DELETE</span></td>
+          <td><code>/api/meal/&lt;id&gt;</code></td><td>删除餐食</td>
+          <td>→ 删除整条餐食记录</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ==================== 总结 ==================== -->
+<section class="section section-alt" id="summary">
+  <div class="container">
+    <h2 class="section-title">项目总结</h2>
+    <p class="section-sub">Summary</p>
+
+    <div class="row g-4 mb-4">
+      <div class="col-6 col-md-2">
+        <div class="card-stat" style="background:var(--green);color:white;">
+          <div class="num">15+</div><div class="lbl" style="color:rgba(255,255,255,.8);">页面模板</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-2">
+        <div class="card-stat" style="background:var(--blue);color:white;">
+          <div class="num">10+</div><div class="lbl" style="color:rgba(255,255,255,.8);">API 端点</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-2">
+        <div class="card-stat" style="background:var(--orange);color:white;">
+          <div class="num">200+</div><div class="lbl" style="color:rgba(255,255,255,.8);">食物数据</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-2">
+        <div class="card-stat" style="background:var(--cyan);color:white;">
+          <div class="num">5</div><div class="lbl" style="color:rgba(255,255,255,.8);">数据表</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-2">
+        <div class="card-stat" style="background:#6f42c1;color:white;">
+          <div class="num">3</div><div class="lbl" style="color:rgba(255,255,255,.8);">AI 模块</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-2">
+        <div class="card-stat" style="background:#222;color:white;">
+          <div class="num">4</div><div class="lbl" style="color:rgba(255,255,255,.8);">路由蓝图</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <div class="card p-4" style="border:none;border-radius:12px;box-shadow:0 2px 15px rgba(0,0,0,.05);">
+          <h5 class="fw-bold text-success mb-3">✅ 已实现功能</h5>
+          <ul style="font-size:14px;line-height:2.2;columns:2;">
+            <li>用户注册/登录</li><li>拍照 AI 识别</li>
+            <li>快速文字输入</li><li>营养仪表盘</li>
+            <li>AI 营养师对话</li><li>饮食计划生成</li>
+            <li>30天趋势报告</li><li>CSV 导出</li>
+            <li>每日 AI 总结</li><li>常吃食物推荐</li>
+            <li>全站浮动答疑</li><li>历史日期查看</li>
+            <li>餐食编辑</li><li>跳过/撤销</li>
+            <li>消费记录</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card p-4" style="border:none;border-radius:12px;box-shadow:0 2px 15px rgba(0,0,0,.05);">
+          <h5 class="fw-bold text-primary mb-3">🚀 未来规划</h5>
+          <ul style="font-size:14px;line-height:2.2;">
+            <li>体脂/体重持续记录图表</li>
+            <li>饭点浏览器通知提醒记录</li>
+            <li>社区分享/打卡功能</li>
+            <li>PWA 移动端 App 化</li>
+            <li>Docker 容器化部署</li>
+            <li>高级统计分析（周报/月报）</li>
+            <li>第三方健康设备数据接入</li>
+            <li>多语言国际化支持</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <strong style="color:var(--green);">NutriSnap</strong> — AI 智能营养管家<br>
+    Flask + SQLite + DeepSeek AI &nbsp;|&nbsp; 2026年6月<br>
+    <small>拍一拍，吃得更明白</small>
+  </div>
+</footer>
+
+</body>
+</html>
