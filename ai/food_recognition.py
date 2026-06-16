@@ -461,15 +461,18 @@ class FoodRecognizer:
             }]
 
     def _recognize_api(self, image_path):
-        """API mode: Use Vision LLM to recognize food from image"""
+        """API mode: Use LLM to recognize food from image.
+        Tries vision API first; falls back to color analysis + LLM text reasoning
+        for text-only models (e.g. DeepSeek)."""
+        import base64
+
+        with open(image_path, 'rb') as f:
+            image_data = base64.b64encode(f.read()).decode('utf-8')
+
+        # Try vision API first (OpenAI-compatible image_url format)
         try:
             from openai import OpenAI
-
             client = OpenAI(api_key=self.api_key, base_url=self.api_base)
-
-            import base64
-            with open(image_path, 'rb') as f:
-                image_data = base64.b64encode(f.read()).decode('utf-8')
 
             prompt = """Analyze this food image carefully. Return ONLY a JSON array of food items.
 Each item should have: name (Chinese name), name_en (English name), confidence (0-1), portion_g (estimated grams).
@@ -493,19 +496,155 @@ Example format:
             )
 
             content = response.choices[0].message.content.strip()
-            # Clean up markdown code blocks if present
             if content.startswith('```'):
                 content = content.split('\n', 1)[1]
                 if content.endswith('```'):
                     content = content[:-3]
+            return json.loads(content)
+
+        except Exception as vision_error:
+            error_msg = str(vision_error)
+            # If vision not supported (DeepSeek etc.), use color analysis + LLM
+            if 'image_url' in error_msg or 'unknown variant' in error_msg or 'proxies' in error_msg:
+                return self._recognize_text_api(image_path, image_data)
+            # For other errors, fall back to simulation
+            print(f"Vision API error, using simulation: {error_msg}")
+            return self._recognize_simulation(image_path)
+
+    def _call_llm(self, messages, max_tokens=800, temperature=0.3):
+        """Call LLM API using either OpenAI library or direct HTTP request."""
+        # Try OpenAI library first
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=self.api_key, base_url=self.api_base)
+            response = client.chat.completions.create(
+                model=self.model or 'gpt-4o',
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+            return response.choices[0].message.content.strip()
+        except Exception:
+            pass
+
+        # Fallback: direct HTTP request
+        try:
+            import urllib.request
+            data = json.dumps({
+                'model': self.model or 'gpt-4o',
+                'messages': messages,
+                'max_tokens': max_tokens,
+                'temperature': temperature
+            }).encode('utf-8')
+            req = urllib.request.Request(
+                f'{self.api_base}/chat/completions',
+                data=data,
+                headers={
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {self.api_key}'
+                }
+            )
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                result = json.loads(resp.read().decode())
+                return result['choices'][0]['message']['content'].strip()
+        except Exception as e:
+            raise RuntimeError(f"LLM API call failed: {e}")
+
+    def _recognize_text_api(self, image_path, image_data):
+        """
+        For text-only LLMs (DeepSeek):
+        1. Analyze image color distribution
+        2. Send color features as text to LLM
+        3. LLM reasons about what food it might be
+        """
+        try:
+            # Step 1: Analyze image colors
+            img = Image.open(image_path)
+            img = img.convert('RGB')
+            img_small = img.resize((100, 100))
+
+            pixels = list(img_small.getdata())
+            total = len(pixels)
+
+            r_avg = sum(p[0] for p in pixels) / total
+            g_avg = sum(p[1] for p in pixels) / total
+            b_avg = sum(p[2] for p in pixels) / total
+            brightness = (r_avg + g_avg + b_avg) / 3
+
+            # Determine dominant color
+            if g_avg > r_avg and g_avg > b_avg:
+                dominant = 'green'
+            elif r_avg > g_avg and r_avg > b_avg:
+                dominant = 'red/orange'
+            elif b_avg > r_avg and b_avg > g_avg:
+                dominant = 'blue/purple'
+            else:
+                dominant = 'neutral'
+
+            if brightness > 180:
+                tone = 'very bright/white'
+            elif brightness > 140:
+                tone = 'bright'
+            elif brightness > 80:
+                tone = 'medium'
+            else:
+                tone = 'dark'
+
+            # Step 2: Get initial guess from simulation
+            sim_results = self._recognize_simulation(image_path)
+
+            # Step 3: Build text prompt for LLM
+            food_names = [f['name'] for f in sim_results]
+            food_list = ', '.join(food_names)
+
+            prompt = f"""你是一个食物识别专家。根据以下图片的色彩分析数据，判断这是什么食物。
+
+图片色彩特征:
+- 主色调: {dominant}
+- 亮度: {tone}
+- 红色通道均值: {r_avg:.1f}
+- 绿色通道均值: {g_avg:.1f}
+- 蓝色通道均值: {b_avg:.1f}
+
+已知食物数据库中可能的匹配（基于色彩启发式）: {food_list}
+
+请根据色彩特征，识别图片中最可能的食物。返回JSON数组格式（只返回JSON，不要其他文字）:
+[{{"name": "食物中文名", "name_en": "English name", "confidence": 0.8, "portion_g": 200, "nutrition": {{"calories": 150, "protein_g": 10, "fat_g": 8, "carbs_g": 15, "fiber_g": 2}}}}]
+
+注意:
+1. name必须是中文食物名
+2. nutrition中的字段名必须是: calories, protein_g, fat_g, carbs_g, fiber_g
+3. confidence基于色彩匹配度，0-1之间
+4. 如果绿色为主，可能是蔬菜类
+5. 如果红色/深色为主，可能是肉类或红烧菜
+6. 如果亮白色为主，可能是米饭、面食类"""
+
+            content = self._call_llm(
+                messages=[{'role': 'user', 'content': prompt}],
+                max_tokens=800,
+                temperature=0.3
+            )
+
+            if content.startswith('```'):
+                content = content.split('\n', 1)[1]
+                if content.endswith('```'):
+                    content = content[:-3]
+
             results = json.loads(content)
+
+            # Ensure nutrition uses correct keys
+            for item in results:
+                if 'nutrition' in item:
+                    nut = item['nutrition']
+                    for old_key, new_key in [('protein_g', 'protein'), ('fat_g', 'fat'),
+                                              ('carbs_g', 'carbs'), ('fiber_g', 'fiber')]:
+                        if old_key in nut and new_key not in nut:
+                            nut[new_key] = nut[old_key]
+
             return results
 
-        except ImportError:
-            # Fallback to simulation if openai not installed
-            return self._recognize_simulation(image_path)
         except Exception as e:
-            print(f"API recognition error: {e}")
+            print(f"Text API recognition error: {e}")
             return self._recognize_simulation(image_path)
 
 
