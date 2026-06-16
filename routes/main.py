@@ -1,4 +1,7 @@
-from flask import Blueprint, render_template, request
+import csv
+import io
+
+from flask import Blueprint, render_template, request, Response
 from flask_login import login_required, current_user
 from models import MealRecord, DailyGoal, ChatHistory, MealPlan
 from datetime import date, datetime, timedelta
@@ -281,4 +284,155 @@ def report():
         meal_type_stats=meal_type_stats,
         meal_completion=meal_completion,
         avg_meal_price=avg_meal_price,
+    )
+
+
+@main_bp.route('/report/export')
+@login_required
+def report_export():
+    """Export 30-day nutrition report as CSV."""
+    today = date.today()
+    start_date = today - timedelta(days=29)
+
+    # Build 30-day data
+    day_rows = []
+    calories_all = []
+    protein_all = []
+    fat_all = []
+    carbs_all = []
+    price_all = []
+
+    for i in range(29, -1, -1):
+        d = today - timedelta(days=i)
+        label = d.strftime('%Y-%m-%d')
+
+        day_meals = MealRecord.query.filter_by(
+            user_id=current_user.id, skipped=False
+        ).filter(
+            MealRecord.created_at >= d.strftime('%Y-%m-%d'),
+            MealRecord.created_at < (d + timedelta(days=1)).strftime('%Y-%m-%d')
+        ).all()
+
+        day_cal = round(sum(m.get_nutrition().get('calories', 0) for m in day_meals))
+        day_protein = round(sum(m.get_nutrition().get('protein', 0) for m in day_meals), 1)
+        day_fat = round(sum(m.get_nutrition().get('fat', 0) for m in day_meals), 1)
+        day_carbs = round(sum(m.get_nutrition().get('carbs', 0) for m in day_meals), 1)
+        day_price = round(sum(m.price or 0 for m in day_meals), 1)
+
+        calories_all.append(day_cal)
+        protein_all.append(day_protein)
+        fat_all.append(day_fat)
+        carbs_all.append(day_carbs)
+        price_all.append(day_price)
+
+        # Per-meal-type calories
+        meal_cal = {'breakfast': 0, 'lunch': 0, 'dinner': 0, 'snack': 0}
+        meal_count = 0
+        for m in day_meals:
+            mt = m.meal_type
+            if mt in meal_cal:
+                meal_cal[mt] += m.get_nutrition().get('calories', 0)
+                meal_count += 1
+
+        day_rows.append({
+            'date': label,
+            'calories': day_cal, 'protein': day_protein, 'fat': day_fat,
+            'carbs': day_carbs, 'price': day_price,
+            'meal_count': meal_count,
+            'breakfast_cal': round(meal_cal['breakfast']),
+            'lunch_cal': round(meal_cal['lunch']),
+            'dinner_cal': round(meal_cal['dinner']),
+            'snack_cal': round(meal_cal['snack']),
+        })
+
+    # Averages
+    days_with_data = sum(1 for c in calories_all if c > 0)
+    if days_with_data > 0:
+        avg_cal = round(sum(calories_all) / days_with_data)
+        avg_protein = round(sum(protein_all) / days_with_data, 1)
+        avg_fat = round(sum(fat_all) / days_with_data, 1)
+        avg_carbs = round(sum(carbs_all) / days_with_data, 1)
+        avg_price = round(sum(price_all) / days_with_data, 1)
+        total_spend = round(sum(price_all), 1)
+    else:
+        avg_cal = avg_protein = avg_fat = avg_carbs = avg_price = total_spend = 0
+
+    # Meal type stats
+    meal_type_stats = {'breakfast': 0, 'lunch': 0, 'dinner': 0, 'snack': 0}
+    meal_price_stats = {'breakfast': 0, 'lunch': 0, 'dinner': 0, 'snack': 0}
+    meal_count_stats = {'breakfast': 0, 'lunch': 0, 'dinner': 0, 'snack': 0}
+    for i in range(29, -1, -1):
+        d = today - timedelta(days=i)
+        day_meals = MealRecord.query.filter_by(
+            user_id=current_user.id, skipped=False
+        ).filter(
+            MealRecord.created_at >= d.strftime('%Y-%m-%d'),
+            MealRecord.created_at < (d + timedelta(days=1)).strftime('%Y-%m-%d')
+        ).all()
+        for m in day_meals:
+            mt = m.meal_type
+            if mt in meal_type_stats:
+                meal_type_stats[mt] += 1
+                meal_price_stats[mt] += m.price or 0
+                meal_count_stats[mt] += 1
+
+    avg_mp = {}
+    for mt in meal_price_stats:
+        avg_mp[mt] = round(meal_price_stats[mt] / meal_count_stats[mt], 1) if meal_count_stats[mt] > 0 else 0
+
+    # Write CSV
+    output = io.StringIO()
+    output.write('\ufeff')  # BOM for Excel
+    w = csv.writer(output)
+
+    w.writerow(['NutriSnap 营养报告 - 30日每日明细'])
+    w.writerow(['日期范围', f'{start_date.strftime("%Y-%m-%d")} 至 {today.strftime("%Y-%m-%d")}'])
+    w.writerow([])
+    w.writerow(['日期', '热量(千卡)', '蛋白质(g)', '脂肪(g)', '碳水(g)', '消费(元)',
+                '餐食数', '早餐热量', '午餐热量', '晚餐热量', '加餐热量'])
+    for d in day_rows:
+        w.writerow([d['date'], d['calories'], d['protein'], d['fat'], d['carbs'],
+                    d['price'], d['meal_count'],
+                    d['breakfast_cal'], d['lunch_cal'], d['dinner_cal'], d['snack_cal']])
+
+    w.writerow([])
+    w.writerow([])
+    w.writerow(['汇总统计'])
+    w.writerow(['指标', '数值'])
+    w.writerow(['有效天数', days_with_data])
+    w.writerow(['日均热量(千卡)', avg_cal])
+    w.writerow(['日均蛋白质(g)', avg_protein])
+    w.writerow(['日均脂肪(g)', avg_fat])
+    w.writerow(['日均碳水(g)', avg_carbs])
+    w.writerow(['日均消费(元)', avg_price])
+    w.writerow(['30日总消费(元)', total_spend])
+
+    w.writerow([])
+    w.writerow([])
+    w.writerow(['餐次分析'])
+    w.writerow(['餐次', '记录次数', '平均价格(元)'])
+    type_labels = {'breakfast': '早餐', 'lunch': '午餐', 'dinner': '晚餐', 'snack': '加餐'}
+    for mt in ['breakfast', 'lunch', 'dinner', 'snack']:
+        w.writerow([type_labels[mt], meal_type_stats[mt], avg_mp.get(mt, 0)])
+
+    w.writerow([])
+    w.writerow([])
+    w.writerow(['用户信息'])
+    w.writerow(['用户名', current_user.username])
+    w.writerow(['身高(cm)', current_user.height or '未设置'])
+    w.writerow(['体重(kg)', current_user.weight or '未设置'])
+    w.writerow(['年龄', current_user.age or '未设置'])
+    goal_map = {'lose': '减重', 'gain': '增肌', 'maintain': '维持体重'}
+    w.writerow(['目标', goal_map.get(current_user.goal, '未设置')])
+
+    filename = f'NutriSnap_Report_{start_date.strftime("%Y%m%d")}_{today.strftime("%Y%m%d")}.csv'
+    output.seek(0)
+
+    return Response(
+        output.getvalue().encode('utf-8-sig'),
+        mimetype='text/csv',
+        headers={
+            'Content-Disposition': f'attachment; filename="{filename}"',
+            'Content-Type': 'text/csv; charset=utf-8-sig'
+        }
     )

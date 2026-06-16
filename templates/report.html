@@ -3,8 +3,15 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h3><i class="bi bi-graph-up"></i> 营养趋势报告</h3>
-    <p class="text-muted">追踪你的饮食习惯变化和消费情况</p>
+    <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+            <h3 class="mb-0"><i class="bi bi-graph-up"></i> 营养趋势报告</h3>
+            <p class="text-muted mb-0">追踪你的饮食习惯变化和消费情况</p>
+        </div>
+        <a href="{{ url_for('main.report_export') }}" class="btn btn-outline-primary">
+            <i class="bi bi-download"></i> 导出 CSV
+        </a>
+    </div>
 
     <!-- Overview Cards -->
     <div class="row g-3 mb-4">

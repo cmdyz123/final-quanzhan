@@ -89,6 +89,28 @@
                                 <div id="quickResult" class="d-none small"></div>
                             </div>
 
+                            <!-- Frequent Foods Quick Entry -->
+                            <div id="frequentFoodsSection" class="mb-2 p-2 bg-white rounded border" style="display:none;">
+                                <small class="fw-bold text-warning"><i class="bi bi-star-fill"></i> 常吃食物</small>
+                                <small class="text-muted ms-1">点击一键记录</small>
+                                <div id="frequentFoodsLoading" class="text-center text-muted small py-2">
+                                    <span class="spinner-border spinner-border-sm me-1"></span>加载中...
+                                </div>
+                                <div id="frequentFoodsEmpty" class="text-center text-muted small py-2" style="display:none;">
+                                    记录更多餐食后这里会出现你的常吃食物
+                                </div>
+                                <div id="frequentFoodsContent" style="display:none;">
+                                    <div class="mb-1" id="frequentFoodsList">
+                                        <small class="text-muted d-block">高频食物</small>
+                                        <div class="d-flex flex-wrap gap-1" id="frequentFoodCards"></div>
+                                    </div>
+                                    <div id="frequentCombosList">
+                                        <small class="text-muted d-block">常见搭配</small>
+                                        <div class="d-flex flex-wrap gap-1" id="frequentComboCards"></div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <hr class="text-muted">
                             <p class="text-muted small">或者逐项手动添加：</p>
 

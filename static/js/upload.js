@@ -315,4 +315,92 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+
+    // === Frequent Foods (常吃食物) ===
+    (function initFrequentFoods() {
+        var section = document.getElementById('frequentFoodsSection');
+        var foodCards = document.getElementById('frequentFoodCards');
+        var comboCards = document.getElementById('frequentComboCards');
+        var loading = document.getElementById('frequentFoodsLoading');
+        var empty = document.getElementById('frequentFoodsEmpty');
+        var content = document.getElementById('frequentFoodsContent');
+
+        if (!section) return;
+
+        fetch('/api/frequent-foods?n=50&top_n=6')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                loading.style.display = 'none';
+                if (!data.top_foods || data.top_foods.length === 0) {
+                    empty.style.display = 'block';
+                    section.style.display = 'block';
+                    return;
+                }
+                section.style.display = 'block';
+                content.style.display = 'block';
+
+                if (data.top_foods && data.top_foods.length > 0) {
+                    var h = '';
+                    data.top_foods.forEach(function(food) {
+                        var b = food.count >= 5
+                            ? '<span class="badge bg-danger ms-1">' + food.count + '次</span>'
+                            : '<span class="badge bg-secondary ms-1">' + food.count + '次</span>';
+                        var icon = foodIcon(food.name);
+                        h += '<button type="button" class="btn btn-outline-secondary btn-sm frequent-food-btn"'
+                            + ' data-food-name="' + escapeHtml(food.name) + '"'
+                            + ' style="border-radius:20px; font-size:0.85rem;">'
+                            + icon + ' ' + escapeHtml(food.name) + b + '</button>';
+                    });
+                    foodCards.innerHTML = h;
+                }
+
+                if (data.top_combos && data.top_combos.length > 0) {
+                    var h = '';
+                    data.top_combos.forEach(function(combo) {
+                        var n = combo.foods.join(' + ');
+                        h += '<button type="button" class="btn btn-outline-success btn-sm frequent-combo-btn"'
+                            + ' data-combo-text="' + escapeHtml(n) + '"'
+                            + ' style="border-radius:20px; font-size:0.85rem;">'
+                            + '🍱 ' + escapeHtml(n)
+                            + ' <span class="badge bg-success ms-1">' + combo.count + '次</span></button>';
+                    });
+                    comboCards.innerHTML = h;
+                } else {
+                    document.getElementById('frequentCombosList').style.display = 'none';
+                }
+
+                bindFrequentClicks();
+            })
+            .catch(function() {
+                loading.style.display = 'none';
+                empty.style.display = 'block';
+                empty.textContent = '加载失败，请刷新重试';
+                section.style.display = 'block';
+            });
+
+        function bindFrequentClicks() {
+            section.querySelectorAll('.frequent-food-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var name = btn.getAttribute('data-food-name');
+                    var qi = document.getElementById('quickFoodInput');
+                    var qb = document.getElementById('quickRecordBtn');
+                    if (qi && qb) { qi.value = name; qb.click(); }
+                });
+            });
+            section.querySelectorAll('.frequent-combo-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var text = btn.getAttribute('data-combo-text');
+                    var qi = document.getElementById('quickFoodInput');
+                    var qb = document.getElementById('quickRecordBtn');
+                    if (qi && qb) { qi.value = text; qb.click(); }
+                });
+            });
+        }
+
+        function foodIcon(name) {
+            var icons = {'饭':'🍚','面':'🍜','包':'🍞','蛋':'🥚','肉':'🥩','鸡':'🍗','鱼':'🐟','虾':'🦐','菜':'🥬','果':'🍎','奶':'🥛','汤':'🍲','豆':'🫘','薯':'🥔','辣':'🌶️','饺':'🥟'};
+            for (var key in icons) { if (name.indexOf(key) !== -1) return icons[key]; }
+            return '🍽️';
+        }
+    })();
 });

@@ -40,6 +40,58 @@ def search_food_api():
     return jsonify({'results': results})
 
 
+@api_bp.route('/api/frequent-foods')
+@login_required
+def frequent_foods():
+    """Get user's most frequently eaten foods and common combos.
+    Query params: n (records to analyze, default 50), top_n (results, default 6)
+    """
+    n = request.args.get('n', 50, type=int)
+    top_n = request.args.get('top_n', 6, type=int)
+
+    recent_meals = MealRecord.query.filter_by(
+        user_id=current_user.id, skipped=False
+    ).order_by(MealRecord.created_at.desc()).limit(n).all()
+
+    food_counter = {}    # {name: {name, count, nutrition, portion_g}}
+    combo_counter = {}   # {frozenset: count}
+
+    for meal in recent_meals:
+        foods = meal.get_foods()
+        names_in_meal = []
+        for f in foods:
+            name = f.get('name', '')
+            if not name:
+                continue
+            names_in_meal.append(name)
+            if name not in food_counter:
+                food_counter[name] = {
+                    'name': name,
+                    'count': 0,
+                    'nutrition': f.get('nutrition', {}),
+                    'portion_g': f.get('portion_g', 200)
+                }
+            food_counter[name]['count'] += 1
+
+        # Track food pairs in same meal
+        for i in range(len(names_in_meal)):
+            for j in range(i + 1, len(names_in_meal)):
+                key = frozenset([names_in_meal[i], names_in_meal[j]])
+                combo_counter[key] = combo_counter.get(key, 0) + 1
+
+    top_foods = sorted(food_counter.values(), key=lambda x: x['count'], reverse=True)[:top_n]
+    top_combos = sorted(
+        [{'foods': list(k), 'count': v} for k, v in combo_counter.items() if v >= 2],
+        key=lambda x: x['count'], reverse=True
+    )[:top_n]
+
+    return jsonify({
+        'top_foods': top_foods,
+        'top_combos': top_combos,
+        'analyzed_records': len(recent_meals)
+    })
+
+
 @api_bp.route('/api/quick-record', methods=['POST'])
 @login_required
 def quick_record():
