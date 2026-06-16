@@ -4,7 +4,7 @@ from datetime import date
 from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 from models import db, MealRecord, ChatHistory, MealPlan
-from ai.food_recognition import FoodRecognizer, search_food, get_food_nutrition
+from ai.food_recognition import FoodRecognizer, search_food, get_food_nutrition, parse_food_text
 from ai.nutrition_analysis import NutritionAnalyzer
 from ai.ai_nutritionist import AINutritionist
 from config import Config
@@ -40,7 +40,77 @@ def search_food_api():
     return jsonify({'results': results})
 
 
-@api_bp.route('/api/manual-record', methods=['POST'])
+@api_bp.route('/api/quick-record', methods=['POST'])
+@login_required
+def quick_record():
+    """Quick text input - 直接输入复合食物名称，自动拆分并记录
+    Example: "猪脚饭加卤蛋" -> 拆分为猪脚饭+卤蛋并自动分析
+    """
+    data = request.get_json()
+    if not data or 'text' not in data:
+        return jsonify({'error': '请输入食物名称'}), 400
+
+    text = data['text'].strip()
+    if not text:
+        return jsonify({'error': '请输入食物名称'}), 400
+
+    meal_type = data.get('meal_type', 'lunch')
+    price = data.get('price')
+    notes = data.get('notes', '')
+
+    # Parse compound food text
+    foods_result = parse_food_text(text)
+
+    if not foods_result:
+        return jsonify({'error': '未识别到食物，请尝试其他描述'}), 400
+
+    # Calculate nutrition totals
+    total_nutrition = {'calories': 0, 'protein': 0, 'fat': 0, 'carbs': 0, 'fiber': 0}
+    for food in foods_result:
+        nutrition = food.get('nutrition', {})
+        portion = food.get('portion_g', 100)
+        factor = portion / 100.0
+        total_nutrition['calories'] += nutrition.get('calories', 0) * factor
+        total_nutrition['protein'] += nutrition.get('protein', 0) * factor
+        total_nutrition['fat'] += nutrition.get('fat', 0) * factor
+        total_nutrition['carbs'] += nutrition.get('carbs', 0) * factor
+        total_nutrition['fiber'] += nutrition.get('fiber', 0) * factor
+
+    for k in total_nutrition:
+        total_nutrition[k] = round(total_nutrition[k], 1)
+
+    # Analyze
+    user_info = {
+        'height': current_user.height,
+        'weight': current_user.weight,
+        'age': current_user.age,
+        'gender': current_user.gender,
+        'goal': current_user.goal,
+    }
+    ai_config = get_ai_config()
+    analyzer = NutritionAnalyzer(mode=ai_config['AI_MODE'])
+    analysis = analyzer.analyze_meal(foods_result, user_info)
+
+    # Save record
+    meal = MealRecord(
+        user_id=current_user.id,
+        meal_type=meal_type,
+        price=price,
+        input_method='manual',
+        notes=notes or f'快速输入: {text}'
+    )
+    meal.set_foods(foods_result)
+    meal.set_nutrition(total_nutrition)
+    db.session.add(meal)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'meal_id': meal.id,
+        'foods': foods_result,
+        'nutrition': total_nutrition,
+        'analysis': analysis['analysis']
+    })
 @login_required
 def manual_record():
     """Record a meal manually with food names and portions"""

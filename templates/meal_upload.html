@@ -74,6 +74,24 @@
                 <div class="tab-pane fade" id="manualPanel">
                     <div class="card shadow-sm">
                         <div class="card-body">
+                            <!-- Quick Text Input -->
+                            <div class="mb-3 p-3 bg-light rounded border">
+                                <label class="form-label fw-bold">⚡ 快速输入（推荐）</label>
+                                <p class="text-muted small mb-2">直接输入食物组合，用「加」或「+」分隔，AI 自动拆分识别<br>
+                                例如：<code>猪脚饭加卤蛋</code>、<code>鸡腿饭加酸菜</code>、<code>米饭加红烧肉加炒青菜</code></p>
+                                <div class="input-group mb-2">
+                                    <input type="text" class="form-control" id="quickFoodInput"
+                                           placeholder="输入：猪脚饭加卤蛋" autocomplete="off">
+                                    <button type="button" class="btn btn-success" id="quickRecordBtn">
+                                        <i class="bi bi-lightning"></i> 识别记录
+                                    </button>
+                                </div>
+                                <div id="quickResult" class="d-none small"></div>
+                            </div>
+
+                            <hr class="text-muted">
+                            <p class="text-muted small">或者逐项手动添加：</p>
+
                             <form method="POST" action="{{ url_for('meal.upload') }}" id="manualForm">
                                 <input type="hidden" name="input_method" value="manual">
 

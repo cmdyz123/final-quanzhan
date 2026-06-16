@@ -219,4 +219,100 @@ document.addEventListener('DOMContentLoaded', function() {
             submitManualBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> 正在保存...';
         });
     }
+
+    // === Quick Text Record ===
+    const quickInput = document.getElementById('quickFoodInput');
+    const quickBtn = document.getElementById('quickRecordBtn');
+    const quickResult = document.getElementById('quickResult');
+
+    if (quickInput && quickBtn) {
+        // Enter key submit
+        quickInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                quickBtn.click();
+            }
+        });
+
+        quickBtn.addEventListener('click', function() {
+            const text = quickInput.value.trim();
+            if (!text) {
+                alert('请输入食物名称');
+                return;
+            }
+
+            const mealType = document.getElementById('meal_type_manual')
+                ? document.getElementById('meal_type_manual').value
+                : 'lunch';
+            const priceInput = document.getElementById('price_manual');
+            const price = priceInput ? parseFloat(priceInput.value) || null : null;
+            const notesInput = document.getElementById('notes_manual');
+            const notes = notesInput ? notesInput.value.trim() : '';
+
+            // Disable button
+            quickBtn.disabled = true;
+            quickBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> 识别中...';
+
+            // Show loading in result area
+            if (quickResult) {
+                quickResult.classList.remove('d-none', 'alert-danger', 'alert-success');
+                quickResult.classList.add('alert', 'alert-info');
+                quickResult.innerHTML = '... AI ' + text + ' ...';
+            }
+
+            fetch('/api/quick-record', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text: text,
+                    meal_type: mealType,
+                    price: price,
+                    notes: notes
+                })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                quickBtn.disabled = false;
+                quickBtn.innerHTML = '<i class="bi bi-lightning"></i> 识别记录';
+
+                if (data.success) {
+                    var foods = data.foods.map(function(f) {
+                        return f.name + '(' + f.portion_g + 'g)';
+                    }).join(' + ');
+
+                    if (quickResult) {
+                        quickResult.classList.remove('alert-info', 'alert-danger');
+                        quickResult.classList.add('alert-success');
+                        quickResult.innerHTML = '<strong>' + foods + '</strong><br>' +
+                            '热量: ' + data.nutrition.calories + '千卡 | ' +
+                            '蛋白质: ' + data.nutrition.protein + 'g | ' +
+                            '脂肪: ' + data.nutrition.fat + 'g | ' +
+                            '碳水: ' + data.nutrition.carbs + 'g<br>' +
+                            '<small class="text-muted">' + data.analysis + '</small><br>' +
+                            '<a href="/dashboard" class="btn btn-sm btn-primary mt-2">查看仪表盘</a>';
+                    }
+
+                    quickInput.value = '';
+
+                    // Auto switch to right panel refresh - just scroll to top
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                } else {
+                    if (quickResult) {
+                        quickResult.classList.remove('alert-info');
+                        quickResult.classList.add('alert-danger');
+                        quickResult.innerHTML = data.error || '';
+                    }
+                }
+            })
+            .catch(function(err) {
+                quickBtn.disabled = false;
+                quickBtn.innerHTML = '<i class="bi bi-lightning"></i> 识别记录';
+                if (quickResult) {
+                    quickResult.classList.remove('alert-info');
+                    quickResult.classList.add('alert-danger');
+                    quickResult.innerHTML = ': ' + err.message;
+                }
+            });
+        });
+    }
 });

@@ -189,6 +189,21 @@ FOOD_DB = {
     '蛋炒饭': {'calories': 170, 'protein': 6.0, 'fat': 6.0, 'carbs': 24.0, 'fiber': 0.3},
     '扬州炒饭': {'calories': 190, 'protein': 7.5, 'fat': 7.0, 'carbs': 25.0, 'fiber': 0.5},
 
+	    # 常见盖饭/套餐
+	    '猪脚饭': {'calories': 280, 'protein': 16.0, 'fat': 18.0, 'carbs': 20.0, 'fiber': 0.3},
+	    '猪蹄饭': {'calories': 275, 'protein': 15.5, 'fat': 17.5, 'carbs': 20.0, 'fiber': 0.3},
+	    '鸡腿饭': {'calories': 260, 'protein': 18.0, 'fat': 12.0, 'carbs': 22.0, 'fiber': 0.5},
+	    '白切鸡饭': {'calories': 240, 'protein': 20.0, 'fat': 10.0, 'carbs': 20.0, 'fiber': 0.5},
+	    '叉烧饭': {'calories': 280, 'protein': 18.0, 'fat': 14.0, 'carbs': 22.0, 'fiber': 0.3},
+	    '烤鸭饭': {'calories': 270, 'protein': 16.0, 'fat': 15.0, 'carbs': 20.0, 'fiber': 0.3},
+	    '烧鸭饭': {'calories': 275, 'protein': 17.0, 'fat': 16.0, 'carbs': 20.0, 'fiber': 0.3},
+	    '烧鹅饭': {'calories': 290, 'protein': 18.0, 'fat': 17.0, 'carbs': 20.0, 'fiber': 0.3},
+	    '豉油鸡饭': {'calories': 250, 'protein': 19.0, 'fat': 11.0, 'carbs': 21.0, 'fiber': 0.3},
+	    '扣肉饭': {'calories': 320, 'protein': 12.0, 'fat': 24.0, 'carbs': 16.0, 'fiber': 0.3},
+	    '卤鸡腿饭': {'calories': 255, 'protein': 19.0, 'fat': 11.5, 'carbs': 21.0, 'fiber': 0.3},
+	    '卤蛋': {'calories': 75, 'protein': 6.5, 'fat': 5.0, 'carbs': 1.0, 'fiber': 0},
+	    '酸菜': {'calories': 18, 'protein': 1.0, 'fat': 0.2, 'carbs': 3.5, 'fiber': 1.5},
+
     # ===== 麻辣烫 / 冒菜 / 火锅 / 干锅 =====
     '火锅': {'calories': 350, 'protein': 25.0, 'fat': 25.0, 'carbs': 10.0, 'fiber': 2.0},
     '麻辣烫': {'calories': 200, 'protein': 12.0, 'fat': 12.0, 'carbs': 14.0, 'fiber': 2.5},
@@ -570,6 +585,93 @@ def get_food_nutrition(food_name):
 def get_all_food_names():
     """Return all food names in the database."""
     return list(FOOD_DB.keys())
+
+
+def parse_food_text(text):
+    """
+    解析复合食物文本输入，自动拆分为多个食物并匹配数据库。
+
+    支持的分隔符：加、+、和、、、配、跟、与、带、含、拌、还有、还有.
+
+    示例:
+        "猪脚饭加卤蛋" → [猪脚饭, 卤蛋]
+        "鸡腿饭加酸菜" → [鸡腿饭, 酸菜]
+        "米饭加红烧肉加炒青菜" → [米饭, 红烧肉, 炒青菜]
+
+    Returns:
+        list of dicts: [{name, name_en, portion_g, nutrition, confidence}]
+    """
+    import re
+
+    if not text or not text.strip():
+        return []
+
+    text = text.strip()
+
+    # Step 1: Split by known separators
+    separators = ['还有', '还加', '再加', '加', '\\+', '和', '、', '，', ',',
+                  '配', '跟', '与', '带', '含', '拌', '还有']
+    sep_pattern = '|'.join(separators)
+    parts = re.split(sep_pattern, text)
+    parts = [p.strip() for p in parts if p.strip()]
+
+    results = []
+
+    for part in parts:
+        # Step 2: Try exact match first
+        if part in FOOD_DB:
+            results.append({
+                'name': part,
+                'name_en': part,
+                'confidence': 1.0,
+                'portion_g': 200,
+                'nutrition': dict(FOOD_DB[part])
+            })
+            continue
+
+        # Step 3: Try fuzzy search
+        matches = search_food(part, limit=1)
+        if matches and matches[0]['match_score'] >= 70:
+            m = matches[0]
+            results.append({
+                'name': m['name'],
+                'name_en': m['name'],
+                'confidence': m['match_score'] / 100.0,
+                'portion_g': 200,
+                'nutrition': m['nutrition']
+            })
+            continue
+
+        # Step 4: Try probing sub-strings (from longest to shortest, min 2 chars)
+        # This handles cases where the compound word itself isn't in DB but its parts are
+        # e.g., searching for longest matching substring
+        best_len = 0
+        best_food = None
+        for food_name in FOOD_DB:
+            if food_name in part and len(food_name) > best_len:
+                best_len = len(food_name)
+                best_food = food_name
+
+        if best_food and best_len >= 2:
+            results.append({
+                'name': best_food,
+                'name_en': best_food,
+                'confidence': 0.75,
+                'portion_g': 200,
+                'nutrition': dict(FOOD_DB[best_food])
+            })
+            continue
+
+        # Step 5: Give up and return as unknown
+        results.append({
+            'name': part,
+            'name_en': part,
+            'confidence': 0.3,
+            'portion_g': 200,
+            'nutrition': {'calories': 150, 'protein': 5, 'fat': 5, 'carbs': 20, 'fiber': 1}
+        })
+
+    return results
 
 
 def create_recognizer(config):
