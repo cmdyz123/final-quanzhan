@@ -1,6 +1,68 @@
 /**
- * Dashboard chart initialization
+ * Dashboard chart initialization + daily summary
  */
+
+function loadDailySummary() {
+    var row = document.getElementById('dailySummaryRow');
+    var body = document.getElementById('dailySummaryBody');
+    var loading = document.getElementById('summaryLoading');
+    var content = document.getElementById('summaryContent');
+
+    if (!row || row.style.display === 'none') return;
+
+    fetch('/api/daily-summary')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.ready) {
+                // Not all meals done yet - hide the row
+                row.style.display = 'none';
+                return;
+            }
+
+            // Show the summary
+            if (loading) loading.classList.add('d-none');
+            if (content) {
+                content.classList.remove('d-none');
+
+                var summary = data.summary;
+                var foods = summary.all_foods.join('、') || '无记录';
+
+                var html = '';
+
+                // AI summary text
+                if (data.ai_summary) {
+                    html += '<div class="alert alert-light border mb-3" style="white-space: pre-line; line-height: 1.8;">';
+                    html += data.ai_summary;
+                    html += '</div>';
+                }
+
+                // Quick stats
+                html += '<div class="row g-2 text-center small">';
+                html += '<div class="col-3"><div class="border rounded p-2"><strong class="text-danger">' + summary.total_cal + '</strong><br>总热量(千卡)</div></div>';
+                html += '<div class="col-3"><div class="border rounded p-2"><strong class="text-primary">' + summary.total_protein + '</strong><br>蛋白质(g)</div></div>';
+                html += '<div class="col-3"><div class="border rounded p-2"><strong class="text-warning">' + summary.total_fat + '</strong><br>脂肪(g)</div></div>';
+                html += '<div class="col-3"><div class="border rounded p-2"><strong class="text-success">' + summary.total_carbs + '</strong><br>碳水(g)</div></div>';
+                html += '</div>';
+
+                // Meal status
+                var mealLabels = {'breakfast': '早餐', 'lunch': '午餐', 'dinner': '晚餐'};
+                html += '<div class="mt-2 small text-muted">';
+                for (var mt in summary.meal_status) {
+                    var s = summary.meal_status[mt];
+                    html += '<span class="me-2">' + mealLabels[mt] + ': ';
+                    html += s === 'skipped' ? '⏭️跳过' : '✅已记录';
+                    html += '</span>';
+                }
+                html += '<span class="ms-2">💰 消费: ¥' + summary.total_price + '</span>';
+                html += '</div>';
+
+                content.innerHTML = html;
+            }
+        })
+        .catch(function(err) {
+            console.error('Daily summary error:', err);
+        });
+}
 
 function initDashboardCharts(weekData, dailyAnalysis) {
     // Weekly calorie + price chart

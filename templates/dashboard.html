@@ -131,6 +131,32 @@
         {% endfor %}
     </div>
 
+    <!-- Daily AI Summary (shown when all meals done) -->
+    {% set all_done = meal_status.breakfast.status != 'missing'
+                    and meal_status.lunch.status != 'missing'
+                    and meal_status.dinner.status != 'missing' %}
+    <div class="row mb-4" id="dailySummaryRow" style="display: {{ 'block' if all_done else 'none' }};">
+        <div class="col-12">
+            <div class="card shadow-sm border-success">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">🤖 AI 今日饮食总结</h5>
+                    <span class="badge bg-light text-dark" id="summaryMealBadge">三餐已齐</span>
+                </div>
+                <div class="card-body" id="dailySummaryBody">
+                    {% if all_done %}
+                    <div class="text-center py-3" id="summaryLoading">
+                        <div class="spinner-border text-success" role="status"></div>
+                        <p class="mt-2 text-muted">AI 正在分析今日饮食...</p>
+                    </div>
+                    <div id="summaryContent" class="d-none"></div>
+                    {% else %}
+                    <p class="text-muted text-center mb-0">记录完三餐后自动生成</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Charts Row -->
     <div class="row mb-4">
         <div class="col-lg-7">
@@ -190,5 +216,6 @@
     const weekData = {{ week_data | tojson }};
     const dailyAnalysis = {{ daily_analysis | tojson }};
     initDashboardCharts(weekData, dailyAnalysis);
+    loadDailySummary();
 </script>
 {% endblock %}

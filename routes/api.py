@@ -363,3 +363,134 @@ def daily_stats():
     analysis['total_price'] = round(total_price, 2)
 
     return jsonify(analysis)
+
+
+@api_bp.route('/api/daily-summary', methods=['GET'])
+@login_required
+def daily_summary():
+    """Generate AI-powered daily meal summary.
+    Only works when all 3 meals (breakfast/lunch/dinner) are recorded or skipped.
+    """
+    from ai import call_llm
+
+    today = date.today()
+    all_today = MealRecord.query.filter_by(
+        user_id=current_user.id
+    ).filter(
+        MealRecord.created_at >= today.strftime('%Y-%m-%d')
+    ).all()
+
+    # Check meal completion status
+    meal_status = {'breakfast': None, 'lunch': None, 'dinner': None}
+    for m in all_today:
+        mt = m.meal_type
+        if mt in meal_status:
+            if m.skipped:
+                meal_status[mt] = {'status': 'skipped'}
+            else:
+                meal_status[mt] = {
+                    'status': 'recorded',
+                    'foods': [f['name'] for f in m.get_foods()],
+                    'nutrition': m.get_nutrition(),
+                    'price': m.price
+                }
+
+    # Only generate if all 3 meals are accounted for
+    missing = [mt for mt, v in meal_status.items() if v is None]
+    if missing:
+        return jsonify({
+            'ready': False,
+            'message': f'还有{len(missing)}餐未记录，请先完成全天记录',
+            'missing': missing
+        })
+
+    # Build summary data
+    total_cal = 0
+    total_protein = 0
+    total_fat = 0
+    total_carbs = 0
+    total_price = 0
+    recorded_count = 0
+    skipped_count = 0
+    all_foods = []
+
+    for mt, data in meal_status.items():
+        if data['status'] == 'skipped':
+            skipped_count += 1
+        elif data['status'] == 'recorded':
+            recorded_count += 1
+            nut = data['nutrition']
+            total_cal += nut.get('calories', 0)
+            total_protein += nut.get('protein', 0)
+            total_fat += nut.get('fat', 0)
+            total_carbs += nut.get('carbs', 0)
+            total_price += data.get('price', 0) or 0
+            all_foods.extend(data.get('foods', []))
+
+    # Build prompt for AI
+    type_labels = {'breakfast': '早餐', 'lunch': '午餐', 'dinner': '晚餐'}
+    meal_desc = []
+    for mt in ['breakfast', 'lunch', 'dinner']:
+        data = meal_status[mt]
+        if data['status'] == 'skipped':
+            meal_desc.append(f"- {type_labels[mt]}: 已跳过（未吃）")
+        else:
+            foods = '、'.join(data.get('foods', []))
+            cal = data['nutrition'].get('calories', 0)
+            price = data.get('price', 0) or 0
+            meal_desc.append(f"- {type_labels[mt]}: {foods}（{cal:.0f}千卡，¥{price:.1f}）")
+
+    goal_map = {'lose': '减重', 'gain': '增肌', 'maintain': '维持体重'}
+    user_goal = goal_map.get(current_user.goal, '维持体重')
+
+    prompt = f"""作为一位专业营养师，请根据以下用户今天的饮食数据，生成一份简洁的每日饮食总结报告。
+
+用户目标: {user_goal}
+
+今日三餐情况:
+{chr(10).join(meal_desc)}
+
+今日总摄入: {total_cal:.0f}千卡 | 蛋白质 {total_protein:.0f}g | 脂肪 {total_fat:.0f}g | 碳水 {total_carbs:.0f}g | 消费 ¥{total_price:.1f}
+实际用餐: {recorded_count}餐 | 跳过: {skipped_count}餐
+
+请用中文生成总结，包含以下部分（用简洁的口语风格）：
+
+1. 🍽️ **今日饮食回顾** - 一句话总结今天吃了什么
+2. 📊 **营养评估** - 营养摄入是否合理，和用户目标匹配度
+3. 💡 **明日建议** - 1-2条具体的改善建议
+4. ⭐ **今日评分** - 给今天的饮食打一个1-10分，说明原因
+
+请直接输出，控制在200字以内，不要用markdown标题。"""
+
+    ai_config = get_ai_config()
+    try:
+        reply = call_llm(
+            api_key=ai_config['LLM_API_KEY'],
+            api_base=ai_config['LLM_API_BASE'],
+            model=ai_config['LLM_MODEL'],
+            messages=[{'role': 'user', 'content': prompt}],
+            max_tokens=500,
+            temperature=0.7
+        )
+        ai_summary = reply
+    except Exception as e:
+        ai_summary = None
+        print(f"Daily summary API error: {e}")
+
+    return jsonify({
+        'ready': True,
+        'summary': {
+            'total_cal': round(total_cal),
+            'total_protein': round(total_protein, 1),
+            'total_fat': round(total_fat, 1),
+            'total_carbs': round(total_carbs, 1),
+            'total_price': round(total_price, 1),
+            'recorded_count': recorded_count,
+            'skipped_count': skipped_count,
+            'all_foods': all_foods,
+            'meal_status': {
+                mt: data['status'] for mt, data in meal_status.items()
+            }
+        },
+        'ai_summary': ai_summary
+    })
