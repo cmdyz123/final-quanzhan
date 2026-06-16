@@ -370,14 +370,26 @@ def daily_stats():
 def daily_summary():
     """Generate AI-powered daily meal summary.
     Only works when all 3 meals (breakfast/lunch/dinner) are recorded or skipped.
+    Accepts optional ?date=YYYY-MM-DD parameter.
     """
     from ai import call_llm
 
-    today = date.today()
+    date_str = request.args.get('date', '')
+    if date_str:
+        try:
+            query_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            query_date = date.today()
+    else:
+        query_date = date.today()
+
+    next_day = query_date + timedelta(days=1)
+
     all_today = MealRecord.query.filter_by(
         user_id=current_user.id
     ).filter(
-        MealRecord.created_at >= today.strftime('%Y-%m-%d')
+        MealRecord.created_at >= query_date.strftime('%Y-%m-%d'),
+        MealRecord.created_at < next_day.strftime('%Y-%m-%d')
     ).all()
 
     # Check meal completion status

@@ -1,7 +1,7 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, request
 from flask_login import login_required, current_user
 from models import MealRecord, DailyGoal, ChatHistory, MealPlan
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from ai.nutrition_analysis import NutritionAnalyzer
 from ai.ai_nutritionist import AINutritionist
 from config import Config
@@ -57,11 +57,24 @@ def _get_meal_status(today_meals):
 @main_bp.route('/dashboard')
 @login_required
 def dashboard():
-    today = date.today()
+    # Support date navigation via query param
+    date_str = request.args.get('date', '')
+    if date_str:
+        try:
+            view_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            view_date = date.today()
+    else:
+        view_date = date.today()
+
+    today = view_date
+    is_today = (view_date == date.today())
+
     all_today = MealRecord.query.filter_by(
         user_id=current_user.id
     ).filter(
-        MealRecord.created_at >= today.strftime('%Y-%m-%d')
+        MealRecord.created_at >= today.strftime('%Y-%m-%d'),
+        MealRecord.created_at < (today + timedelta(days=1)).strftime('%Y-%m-%d')
     ).order_by(MealRecord.created_at.desc()).all()
 
     # Separate real records from skipped
@@ -118,6 +131,12 @@ def dashboard():
 
     return render_template(
         'dashboard.html',
+        view_date=view_date,
+        view_date_str=view_date.strftime('%Y-%m-%d'),
+        is_today=is_today,
+        prev_date=(view_date - timedelta(days=1)).strftime('%Y-%m-%d'),
+        next_date=(view_date + timedelta(days=1)).strftime('%Y-%m-%d')
+        if not is_today else None,
         meals_today=meals_today,
         meal_status=meal_status,
         daily_analysis=daily_analysis,

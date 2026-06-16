@@ -3,15 +3,39 @@
 
 {% block content %}
 <div class="container mt-4">
-    <!-- Welcome & Summary -->
-    <div class="row mb-4">
-        <div class="col-lg-8">
-            <h3><i class="bi bi-speedometer2"></i> 营养仪表盘</h3>
-            <p class="text-muted">{{ daily_analysis.summary }}</p>
+    <!-- Date Navigation -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex align-items-center justify-content-between">
+                <a href="?date={{ prev_date }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-chevron-left"></i> 前一天
+                </a>
+                <div class="text-center">
+                    <h4 class="mb-0">
+                        {{ view_date.strftime('%Y年%m月%d日') }}
+                        {% if is_today %}<span class="badge bg-success ms-2">今天</span>{% endif %}
+                    </h4>
+                    <small class="text-muted">{{ daily_analysis.summary }}</small>
+                </div>
+                {% if next_date %}
+                <a href="?date={{ next_date }}" class="btn btn-outline-secondary btn-sm">
+                    后一天 <i class="bi bi-chevron-right"></i>
+                </a>
+                {% else %}
+                <span class="btn btn-outline-secondary btn-sm disabled">后一天</span>
+                {% endif %}
+            </div>
         </div>
-        <div class="col-lg-4 text-lg-end">
-            <a href="{{ url_for('meal.upload') }}" class="btn btn-primary">
+    </div>
+
+    <!-- Welcome & Summary -->
+    <div class="row mb-3">
+        <div class="col-12 text-end">
+            <a href="{{ url_for('meal.upload') }}" class="btn btn-primary btn-sm">
                 <i class="bi bi-camera"></i> 记录餐食
+            </a>
+            <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-primary btn-sm ms-1">
+                <i class="bi bi-arrow-clockwise"></i> 回到今天
             </a>
         </div>
     </div>
@@ -139,7 +163,7 @@
         <div class="col-12">
             <div class="card shadow-sm border-success">
                 <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">🤖 AI 今日饮食总结</h5>
+                    <h5 class="mb-0">🤖 AI {{ '今日' if is_today else view_date.strftime('%m月%d日') }}饮食总结</h5>
                     <span class="badge bg-light text-dark" id="summaryMealBadge">三餐已齐</span>
                 </div>
                 <div class="card-body" id="dailySummaryBody">

@@ -202,14 +202,37 @@ def _handle_manual_input():
 @meal_bp.route('/meal/log')
 @login_required
 def meal_log():
-    """View all meal records"""
-    today = date.today()
-    meals = MealRecord.query.filter_by(
-        user_id=current_user.id
-    ).order_by(MealRecord.created_at.desc()).limit(50).all()
+    """View all meal records with optional date filter"""
+    from datetime import datetime
 
-    # Calculate today's total spending
-    today_meals = [m for m in meals if m.created_at.date() == today]
+    date_str = request.args.get('date', '')
+    if date_str:
+        try:
+            filter_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            filter_date = None
+    else:
+        filter_date = None
+
+    today = date.today()
+    if filter_date:
+        meals = MealRecord.query.filter_by(
+            user_id=current_user.id
+        ).filter(
+            MealRecord.created_at >= filter_date.strftime('%Y-%m-%d'),
+            MealRecord.created_at < (filter_date + timedelta(days=1)).strftime('%Y-%m-%d')
+        ).order_by(MealRecord.created_at.desc()).all()
+        view_date = filter_date
+        is_today = (filter_date == today)
+    else:
+        meals = MealRecord.query.filter_by(
+            user_id=current_user.id
+        ).order_by(MealRecord.created_at.desc()).limit(50).all()
+        view_date = today
+        is_today = True
+
+    # Calculate spending for viewed date
+    today_meals = [m for m in meals if m.created_at.date() == view_date]
     today_total_price = sum(m.price or 0 for m in today_meals)
 
     # Calculate week spending
@@ -219,6 +242,12 @@ def meal_log():
     return render_template(
         'meal_log.html',
         meals=meals,
+        view_date=view_date,
+        view_date_str=view_date.strftime('%Y-%m-%d'),
+        is_today=is_today,
+        prev_date=(view_date - timedelta(days=1)).strftime('%Y-%m-%d'),
+        next_date=(view_date + timedelta(days=1)).strftime('%Y-%m-%d')
+        if not is_today else None,
         today_total_price=today_total_price,
         week_total_price=week_total_price
     )

@@ -10,7 +10,12 @@ function loadDailySummary() {
 
     if (!row || row.style.display === 'none') return;
 
-    fetch('/api/daily-summary')
+    var params = new URLSearchParams(window.location.search);
+    var dateParam = params.get('date') || '';
+    var url = '/api/daily-summary';
+    if (dateParam) url += '?date=' + dateParam;
+
+    fetch(url)
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (!data.ready) {
